@@ -1,2 +1,0 @@
-module FUTURE-SYNTAX
-endmodule
