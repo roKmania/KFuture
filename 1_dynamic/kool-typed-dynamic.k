@@ -44,7 +44,6 @@ untyped KOOL.  */
   syntax Type ::= "void" | "int" | "bool" | "string"
                 | Id                              // KOOL class
                 | Type "[" "]"
-                | Id "<" Types ">"              // KOOL generics
                 > Types "->" Type
                 | "(" Type ")"           [bracket]
   syntax Types ::= List{Type,","}
@@ -109,7 +108,6 @@ untyped KOOL.  */
                 | "if" "(" Exp ")" Block
                 | "while" "(" Exp ")" Block
                 | "for" "(" Stmts Exp ";" Exp ")" Block
-                | "for" "(" Type Id ":" Exp ")" Block
                 | "print" "(" Exps ")" ";"              [strict]
                 | "return" Exp ";"                      [strict]
                 | "return" ";"
