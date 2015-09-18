@@ -512,6 +512,7 @@ encountered. */
 
 Like in untyped KOOL. */
 
+/*
   rule <thread>...
          <k> spawn S => !T:Int ...</k>
          <env> Env </env>
@@ -523,7 +524,7 @@ Like in untyped KOOL. */
                <id> !T </id>
                <crntObj> Obj </crntObj>
              ...</thread>)
-
+*/
 
 //@ \subsection{Semantics of the new KOOL constructs}
 
@@ -567,6 +568,8 @@ those in untyped KOOL. */
 
   syntax KItem ::= (Id,EnvCellSort)
 
+/*
+
   rule <k> new Class:Id(Vs:Vals) ~> K
            => create(Class) ~> (storeObj ~> ((Class(Vs)); return this;)) </k>
        <env> Env => .Map </env>
@@ -583,6 +586,7 @@ those in untyped KOOL. */
          ...</fstack>
        </control>
 
+*/
   syntax KItem ::= create(Id)
 
   rule <k> create(Class:Id)
@@ -606,20 +610,22 @@ those in untyped KOOL. */
        <envStack> .List => ListItem((Class, <env>Env</env>)) ...</envStack>
     [structural]
 
+/*
   syntax KItem ::= "storeObj"
 
   rule <k> storeObj => . ...</k>
        <crntObj> Obj (<location> L:Int </location> => .) </crntObj>
        <store>... .Map => L |-> objectClosure(Obj) ...</store>
-
+*/
 
 /*@ \subsubsection{Self reference}
 
 Like in untyped KOOL. */
 
+/*
   rule <k> this => objectClosure(Obj) ...</k>
        <crntObj> Obj </crntObj>
-
+*/
 
 /*@ \subsubsection{Object member access}
 
