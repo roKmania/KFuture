@@ -11,7 +11,7 @@ class Main {
     return s;
   }
 
-  void Main() {
+  int Main() {
     print("Testing Collatz' conjecture up to what number? ");
     int m = read(), s;
     for (int i=1; i<=m; ++i) { 
@@ -20,5 +20,6 @@ class Main {
       print("Done! It took ",s," steps.\n");
     }
     print("Done.  It appears to hold.\n");
+    return 0;
   }
 }
