@@ -20,6 +20,6 @@ class Main {
       print("Done! It took ",s," steps.\n");
     }
     print("Done.  It appears to hold.\n");
-    return 0;
+    return this;
   }
 }

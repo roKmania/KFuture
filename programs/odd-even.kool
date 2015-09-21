@@ -4,6 +4,7 @@ class OddEven {
   int n;
   void OddEven(int x) {
     n = x;
+  return this;
   }
   int even() {
     if (n == 0) {
@@ -28,6 +29,7 @@ class OddEven {
 class Main {
   void Main() {
     print((new OddEven(17)).odd(), "\n");
+    return this;
   }
 }
 

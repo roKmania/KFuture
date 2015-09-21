@@ -283,6 +283,24 @@ module FUTURE
   rule <k> future(Id).get => V ...</k>
        <fid> Id </fid>
        <result> V </result>
+/*
+  Additional semantics for lvalue:
+*/
+  rule <k> lvalue(object(Id:Int) . X
+                  =>
+                  lookupMember(<envStack> ES </envStack>, X))
+       ...</k>
+       <location> Id </location>
+       <envStack> ES:List </envStack>
+  [structural]
+       
+  rule <k> object(Id:Int) . X
+                  =>
+                  lookupMember(<envStack> ES </envStack>, X)
+       ...</k>
+       <location> Id </location>
+       <envStack> ES:List </envStack>
+  [structural]
 
 /*
   Auxiliary stuff:
