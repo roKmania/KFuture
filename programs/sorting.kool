@@ -25,6 +25,8 @@ class Sorting {
     print("\n");
   }
 
+//  void->void getPrintArray() { return printArray; }
+
   void reverse() {
     for (int i=0; i<size/2; ++i) {
       int t = array[i];
@@ -32,6 +34,8 @@ class Sorting {
       array[size - i - 1] = t;
     }
   }
+
+//  void->void getReverse() { return reverse; }
 
   void insertionSort() {
     for (int i=1; i<size; ++i) {
@@ -47,6 +51,8 @@ class Sorting {
     }
   }
 
+//  void->void getInsertionSort() { return insertionSort; }
+
   void bubbleSort() {
     for (int i=0; i<size; ++i) {
       for (int j=0; j<size- 1; ++j) {
@@ -58,6 +64,8 @@ class Sorting {
       }
     }
   }
+
+//  void->void getBubbleSort() { return bubbleSort; }
 
   void siftDown(int root, int bottom) {
     bool done = false;
@@ -102,15 +110,21 @@ class Sorting {
     }
   }
 
+//  void->void getHeapSort() { return heapSort; }
+
+//  void call(void->void m) {
+//    m();
+//  }
+
 }
 
 
 class Main {
 
-  void map(string[] m, (void -> void)[] f) {
+  void map(Sorting s, string[] m, (void -> void)[] f) {
     for (int i=0; i<sizeOf(f); ++i) {
       print(m[i]);
-      (f[i])();
+      s.call(f[i]);
     }
   }
 
@@ -120,27 +134,27 @@ class Main {
     string m[11];
     void->void f[11];
     m[ 0] = "The original unsorted array is:";
-    f[ 0] = s.printArray;
+    f[ 0] = s.getPrintArray();
     m[ 1] = "Reversing the array ... ";
-    f[ 1] = s.reverse;
+    f[ 1] = s.getReverse();
     m[ 2] = "Done!\nThe reversed array is:";
-    f[ 2] = s.printArray;
+    f[ 2] = s.getPrintArray();
     m[ 3] = "Sorting the array using insertion sort ... ";
-    f[ 3] = s.insertionSort;
+    f[ 3] = s.getInsertionSort();
     m[ 4] = "Done!\nThe resulting array is:";
-    f[ 4] = s.printArray;
+    f[ 4] = s.getPrintArray();
     m[ 5] = "Reversing the array ... ";
-    f[ 5] = s.reverse;
+    f[ 5] = s.getReverse();
     m[ 6] = "Done!\nSorting the array using bubble sort ... ";
-    f[ 6] = s.bubbleSort;
+    f[ 6] = s.getBubbleSort();
     m[ 7] = "Done!\nThe resulting array is:";
-    f[ 7] = s.printArray;
+    f[ 7] = s.getPrintArray();
     m[ 8] = "Reversing the array ... ";
-    f[ 8] = s.reverse;
+    f[ 8] = s.getReverse();
     m[ 9] = "Done!\nSorting the array using heap sort ... ";
-    f[ 9] = s.heapSort;
+    f[ 9] = s.getHeapSort();
     m[10] = "Done!\nThe resulting array is:";
-    f[10] = s.printArray;
-    map(m,f);
+    f[10] = s.getPrintArray();
+    map(s,m,f);
   }
 }

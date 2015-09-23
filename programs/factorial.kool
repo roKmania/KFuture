@@ -7,7 +7,6 @@ class Main {
   }
   void Main() {
     print(f(f(5)), "\n");
-    return this;
   }
 }
 

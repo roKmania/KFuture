@@ -9,16 +9,19 @@ class A {
   void inc() {
     ++c;
   }
+  void->void getInc() { return inc; }
+  int getC() { return c; }
 }
 
 class B {
   A a = new A();
-  void->void m = a.inc;
+  A getA() { return a; }
+  void->void m = a.getInc();
   int x = 0;
   void B() {
-    print(a.c, " ");
+    print(a.getC(), " ");
     m();
-    print(a.c, " ");
+    print(a.getC(), " ");
   }
   void->void getM() {
     return m;
@@ -31,11 +34,11 @@ class Main {
     B b = new B();
     void->void t = f = b.getM();
     f();
-    print(b.a.c, " ");
+    print((b.getA()).getC(), " ");
     t();
-    print(b.a.c, " ");
+    print((b.getA()).getC(), " ");
     (b.getM())();                 // shows the higher-order aspect of KOOL
-    print(b.a.c, "\n");
+    print((b.getA()).getC(), "\n");
   }
 }
 

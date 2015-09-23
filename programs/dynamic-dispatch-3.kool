@@ -15,8 +15,11 @@ class A {
   void A() {
     x = 1;
   }
+  int getX() {
+    return x;
+  }
   B m1(B b) {
-    b.y = 10;
+    b.setY(10);
     return b;
   }
 }
@@ -26,6 +29,12 @@ class B extends A {
   void B() {
     super.A();
     y = 100;
+  }
+  int getY() {
+    return y;
+  }
+  int setY(int y) {
+    this.y = y;
   }
   B m2(B b) {
     return m1(b);   // HOT-SPOT
@@ -45,8 +54,11 @@ class C extends B {
     super.B();
     z = 1000;
   }
+  int getZ() {
+    return z;
+  }
   C m1(A a) {
-    z = a.x;
+    z = a.getX();
     return this;
   }
 // To see how the program gets stuck under dynamic type checking, you
@@ -67,8 +79,12 @@ class Main {
     A a = new A();
     B b = new B();
     C c = new C();
-    print(b.y, " ", c.z, "\n");
-    print((b.m2(b)).y, " ", (c.m2(b)).y, "\n");
-    print(b.y, " ", c.z, "\n");
+    print(b.getY(), " ", c.getZ(), "\n");
+    print((b.m2(b)).getY(), " ", (c.m2(b)).getY(), "\n");
+    print(b.getY(), " ", c.getZ(), "\n");
   }
 }
+
+// 100 1000
+// 10 100
+// 10 1

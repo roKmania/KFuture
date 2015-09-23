@@ -26,8 +26,8 @@ class Main {
   void Main() {
     B b = new B();
     A a = (A) b;
-    print("b.x = ", b.x, "\n");
-    print("a.x = ", a.x, "\n");
+//    print("b.x = ", b.x, "\n");
+//    print("a.x = ", a.x, "\n");
     print("a.getB() = ", a.getB(), "\n");  // this should not type check.  why?
     print("a.getA() = ", a.getA(), "\n");
   }

@@ -17,6 +17,8 @@ class Thread {
 class Cell {
   int v;
 
+  int getV() { return v; }
+
   void Cell(int v) {
     this.v = v;
   }
@@ -48,9 +50,9 @@ class Main {
     Cell c = new Cell(7);
     MyThread t1 = new MyThread(c);
     MyThread t2 = new MyThread(c);
-    t1.start();
-    t2.start();
-    print(c.v,"\n");
+    t1 ! start();
+    t2 ! start();
+    print(c.getV(),"\n");
   }
 
 }

@@ -654,7 +654,7 @@ Like in untyped KOOL. */
 /*  rule <k> super . X => lookupMember(<envStack>EStack</envStack>, X) ...</k>
        <crntClass> Class </crntClass>
        <envStack>... ListItem((Class,EnvC:Bag)) EStack </envStack>
-    [structural]*/
+    [structural]
   rule <k> super . X => lookupMember(<envStack>EStack</envStack>, X) ...</k>
        <crntClass> Class:Id </crntClass>
        <envStack> ListItem((Class,EnvC:Bag)) EStack </envStack>
@@ -663,7 +663,7 @@ Like in untyped KOOL. */
        <crntClass> Class:Id </crntClass>
        <envStack> (ListItem((Class':Id,EnvC:Bag)) => .List) EStack </envStack>
     when Class =/=K Class' [structural]
-
+*/
 /*@\subsubsection{Method invocation}
 
 The method lookup is the same as in untyped KOOL.  */
@@ -685,7 +685,7 @@ The method lookup is the same as in untyped KOOL.  */
             => lookupMember(<envStack>EStack</envStack>,X))(_:Exps)...</k>
        <crntClass> Class </crntClass>
        <envStack>... ListItem((Class,_)) EStack </envStack>
-    [structural]*/
+    [structural]
   rule <k> (super . X
             => lookupMember(<envStack>EStack</envStack>,X))(_:Exps)...</k>
        <crntClass> Class:Id </crntClass>
@@ -695,7 +695,7 @@ The method lookup is the same as in untyped KOOL.  */
        <crntClass> Class:Id </crntClass>
        <envStack> (ListItem((Class':Id,_)) => .List) EStack </envStack>
     when Class =/=K Class' [structural]
-
+*/
   context HOLE(_:Exps)
     when getKLabel HOLE ==KLabel '_`(_`) orBool getKLabel HOLE ==KLabel '_`[_`]
 
@@ -741,7 +741,7 @@ Like in untyped KOOL. */
                             <envStack>... ListItem((C,EnvC:Bag)) EStack </envStack>)
               . X
               => lookupMember(<envStack> ListItem((C,EnvC)) EStack </envStack>,
-                              X))  [structural]*/
+                              X))  [structural]
   rule lvalue(objectClosure(<crntClass> C:Id </crntClass>
                             <envStack> ListItem((C,EnvC:Bag)) EStack </envStack>)
               . X
@@ -751,7 +751,7 @@ Like in untyped KOOL. */
                             <envStack> (ListItem((C',EnvC:Bag)) => .List) EStack </envStack>)
               . X)
     when C =/=K C' [structural]
-
+*/
 
 /*@ \subsubsection{Lookup member}
 

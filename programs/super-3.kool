@@ -27,12 +27,17 @@ class C3 extends C2 {
     u=super.y;
     w=super.z;
   }
+  int getX() { return x; }
+  int getY() { return y; }
+  int getZ() { return z; }
+  int getU() { return u; }
+  int getW() { return w; }
 }
 
 class Main {
   void Main() {
     C3 o = new C3();
-    print(o.x, " ", o.y, " ", o.z, " ", o.u, " ", o.w, "\n");
+    print(o.getX(), " ", o.getY(), " ", o.getZ(), " ", o.getU(), " ", o.getW(), "\n");
   }
 }
 

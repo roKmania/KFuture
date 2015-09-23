@@ -2,6 +2,10 @@
 
 class Matrix {
   int lines, columns;
+  
+  int getLines() { return lines; }
+  int getColumns() { return columns; }
+
   int[][] matrix;
 
   void Matrix(int x, int y) {
@@ -34,10 +38,18 @@ class Matrix {
     Matrix a = new Matrix(lines,columns);
     for (int i=0; i<lines; ++i) {
       for (int j=0; j<columns; ++j) {
-        a.matrix[i,j] = matrix[i,j];
+        a.matrixSet(i,j, matrix[i,j]);
       }
     }
     return a;
+  }
+
+  void matrixSet(int i, int j, int v) {
+    matrix[i,j]=v;
+  }
+
+  int matrixGet(int i, int j) {
+    return matrix[i,j];
   }
 
   void transpose() {
@@ -54,20 +66,20 @@ class Matrix {
   }
 
   void multiply(Matrix a) {
-    if (a.lines != columns) {
+    if (a.getLines() != columns) {
       print("Incompatible dimensions.\n");
       return;
     }
-    int b[lines,a.columns];
+    int b[lines,a.getColumns()];
     for (int i=0; i<lines; ++i) {
-      for (int j=0; j<a.columns; ++j) {
+      for (int j=0; j<a.getColumns(); ++j) {
         b[i,j] = 0;
         for (int k=0; k<columns; ++k) {
-          b[i,j] = b[i,j] + matrix[i,k] * a.matrix[k,j];
+          b[i,j] = b[i,j] + matrix[i,k] * a.matrixGet(k,j);
 	}
       }
     }
-    columns = a.columns;
+    columns = a.getColumns();
     matrix = b;
   }
 }
