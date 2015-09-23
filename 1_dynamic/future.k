@@ -8,7 +8,7 @@ module FUTURE-SYNTAX
                | Guard
 
   syntax Id ::= "get" [token]
-  syntax Guard ::= "wait" | Id "?"
+  syntax Guard ::= "wait" | Exp "?" [strict]
   syntax Type ::= "!" Type
   syntax Stmt ::= "await" Exp ";"
 endmodule
@@ -39,8 +39,8 @@ module FUTURE
                       <token> .K </token>
                       <waiting-tasks>
                         <waiting-task multiplicity="*">
-                          <fId> 0 </fId>
-                          <guard> .K </guard>
+                          <guard multiplicity="?"> .Set </guard>
+                          <waiting-k> .K </waiting-k>
                           <waiting-task-conf> .Bag </waiting-task-conf>
                         </waiting-task> 
                       </waiting-tasks>
@@ -174,54 +174,75 @@ module FUTURE
   rule O:ObjectVal . Method:Id(Vs:Vals) 
     => (O ! Method(Vs)).get
   
-  rule <k> super . Method:Id(Vs:Vals) => (superCall(Id, Class) ! Method(Vs)).get
-      ...</k>
-      <crntClass> Class </crntClass>
-      <location> Id:Int </location>
-
-  syntax Val ::= superCall(Int,Id)
-
 /*
   - a super call creates a new future and "returns" the identifier
     of the new future 
 */
-  rule <k> superCall(X:Int, Class) ! Method:Id(Vs:Vals)
-        => future(F) ...</k>
+
+   rule <k> super . Method:Id(Vs:Vals) => future(F).get ...</k>
+      <crntClass> Class </crntClass>
+      <location> Id:Int </location>
        <className> Class </className>
        <extends> Class':Id </extends>
-       (. => <future>... <fid> F </fid> <oid> X </oid> <mClass> Class' </mClass>
+       (. => <future>... <fid> F </fid> <oid> Id </oid> <mClass> Class' </mClass>
                          <method> Method </method> <arguments> Vs </arguments>
              ...</future>)
        <nextFutureId> F:Int => F +Int 1 </nextFutureId>
-
 
 /*
   The rules for blocking/unblocking tasks:
 */
 
   // the case when the future is not done
-  rule (<active-task> Task  
-           <k> future(Id).get ~> K </k> 
-        </active-task> => <active-task>... <k> . </k> ...</active-task> ) 
-       (. => <waiting-task> <guard> future(Id).get ~> K </guard> 
-                              <waiting-task-conf> Task </waiting-task-conf>
+  rule ( <active-task> Task  
+           <k> waiting(<guard> Guards:Set </guard>) ~> K </k> 
+         </active-task>
+        =>
+         <active-task>... <k> . </k> ...</active-task> ) 
+       (. => <waiting-task> 
+               <guard> Guards </guard> 
+               <waiting-k> K </waiting-k>               
+               <waiting-task-conf> Task </waiting-task-conf>
              </waiting-task>)
-       <fid> Id </fid>
-       <state> S:State </state>
-       requires S =/=K completed
-  [futureBlock]
 
   // the case when the future is done
   rule (<active-task>... <futureId> 0 </futureId> <k> . </k> ...</active-task>
         =>
-        <active-task> Task <k> future(Id).get ~> K </k> </active-task>
+        <active-task> Task <k> K </k> </active-task>
        )
-       (<waiting-task> <guard> future(Id).get ~> K </guard> 
-                         <waiting-task-conf> Task </waiting-task-conf>
+       (<waiting-task> <waiting-k> K </waiting-k>
+                       <waiting-task-conf> Task </waiting-task-conf>
         </waiting-task> => .)
+  [futureUnblock]
+
+/* Basic semantics for await
+*/
+  rule await(E1 && E2); => await(E1); ~> await(E2);
+  rule await(true); => .
+  context waiting(<guard> _:Set SetItem(HOLE ?) </guard>)
+  rule await(E ?); => waiting(<guard> SetItem(E ?)</guard>)
+  rule await(wait); => waiting(<guard> SetItem(wait)</guard>)
+  rule await(E1 || E2); => waiting(<guard> SetItem(E1) SetItem(E2)</guard>)
+
+  syntax KItem ::= waiting(Bag)
+  rule <guard>... SetItem(true) ...</guard> => .
+  rule <guard>... SetItem(E1 || E2) => SetItem(E1) SetItem(E2) ...</guard>
+  rule waiting(.Bag) => .
+
+  rule (<guard>... SetItem(future(Id) ?) ...</guard> => .)
        <fid> Id </fid>
        <state> completed </state> 
-  [futureUnblock]
+
+  rule <waiting-task>...
+         <guard>... SetItem(wait) ...</guard> => . 
+       ...</waiting-task>
+
+/* Semantics for Future ? 
+*/
+
+  rule <k> future(Id) ? => State ==K completed ...</k>
+       <fid> Id </fid>
+       <state> State </state>
 
 /*
   The new semantics of the return statement:
@@ -256,7 +277,11 @@ module FUTURE
   The semantics of the get metod:
 */
 
-  rule <k> future(Id).get => V ...</k>
+  rule future(Id).get => await(future(Id) ?); ~> getResult(Id)
+
+  syntax KItem ::= getResult(Int)
+ 
+  rule <k> getResult(Id) => V ...</k>
        <fid> Id </fid>
        <result> V:Val </result>
     requires isExceptionVal(V) =/=K true
@@ -283,7 +308,7 @@ module FUTURE
        <extends> Class':Id </extends>
 
 /*
-  Additional field lookup semantics for lvalue:
+  Duplicate field lookup semantics for lvalue:
 */
   rule <k> lvalue(object(Id:Int, _, Class:Id) . X
                   =>
@@ -293,6 +318,14 @@ module FUTURE
        <envStack> ES:List </envStack>
   [structural]
      
+  rule <k> lvalue(super . X 
+                  => lookupThis(<envStack> ES </envStack>, Class', X)) 
+       ...</k>
+       <envStack> ES:List </envStack>
+       <crntClass> Class:Id </crntClass>
+       <className> Class </className>
+       <extends> Class':Id </extends>
+
 
 
 /*  Lookup Method
@@ -338,8 +371,13 @@ module FUTURE
        <xstack> . </xstack>
 
 
-  rule <k> future(Id).get => throw V; ...</k>
+  rule <k> getResult(Id) => throw V; ...</k>
        <fid> Id </fid>
        <result> exception(V:Val) </result>
+
+/* Hack for future types
+*/
+  rule subtype( typeOf( future(_)), ! _) => true
+  rule unsafeCast(future(Id), ! _) => future(Id)
 
 endmodule
