@@ -279,10 +279,11 @@ KOOL).  */
   rule sizeOf(array(_,_,N)) => N
 
 
+/*
   syntax Val ::= nothing(Type)
   rule <k> return; => return nothing(T); ...</k> <return> T </return>
     [structural]
-
+*/
 
   rule <k> read() => I ...</k> <in> ListItem(I:Int) => .List ...</in>  [read]
 
@@ -312,6 +313,7 @@ KOOL).  */
   rule print(.Vals); => .  [structural]
 
 
+/*
   rule (<thread>... <k>.</k> <holds>H</holds> <id>T</id> ...</thread> => .)
        <busy> Busy => Busy -Set keys(H) </busy>
        <terminated>... .Set => SetItem(T) ...</terminated>
@@ -336,7 +338,7 @@ KOOL).  */
 
   rule <k> rendezvous V:Val; => . ...</k>
        <k> rendezvous V; => . ...</k>  [rendezvous]
-
+*/
 //@\subsubsection{Unchanged auxiliary operations from dynamically typed SIMPLE}
 
   syntax Stmts ::= mkDecls(Params,Vals)  [function]
@@ -376,7 +378,7 @@ KOOL).  */
   rule typeOf(_:String) => string
   rule typeOf(array(T,_,_)) => (T[])
   rule typeOf(undefined(T)) => T
-  rule typeOf(nothing(T)) => T
+//  rule typeOf(nothing(T)) => T
 
   syntax Types ::= getTypes(Params)  [function]
   rule getTypes(T:Type _:Id) => T, .Types
@@ -426,6 +428,7 @@ current status of the \textsf{return} cell and then pop it when the
 method returns.  We have to do the same with the current object
 environment, so we group them together in the stack frame.  */
 
+/*
   syntax KItem ::= (Map,K,ControlCellFragment)
 
   rule <k> methodClosure(_->T,Class,OL,Ps,S)(Vs:Vals) ~> K
@@ -440,7 +443,7 @@ environment, so we group them together in the stack frame.  */
           <crntObj> Obj' => <crntClass> Class </crntClass> Obj </crntObj>
           <return> T' => T </return>
        </control>
-
+*/
 /*@ At method return, we have to check that the type of the returned
 value is a subtype of the expected return type.  Moreover, if that is
 the case, then we also upcast the returned value to one of the
@@ -448,7 +451,7 @@ expected type.  The computation item \texttt{unsafeCast(V,T)} changes
 the typeof $V$ to $T$ without any additional checks; however, it only
 does it when $V$ is an object or a method, otherwise it returns $V$
 unchanged.  */
-
+/*
   rule <k> return V:Val; ~> _
            => subtype(typeOf(V), T) ~> true? ~> unsafeCast(V, T) ~> K
        </k>
@@ -457,7 +460,7 @@ unchanged.  */
          (<return> T:Type </return> _ => C)
        </control>
        <env> _ => Env </env>
-
+*/
 
 /*@ \subsubsection{Assignment}
 
