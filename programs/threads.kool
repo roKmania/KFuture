@@ -4,13 +4,19 @@
 // looking up run(), as run is a member in their parent thread's object.
 
 class Thread {
+  !void id;
   void Thread() { }
 
   void run() { }  // you are supposed to override this method
 
   void start() {
-    spawn { run(); };
+    id = this ! run();
   }
+  
+  int join() {
+    await id;
+  }
+  
 }
 
 
@@ -50,8 +56,9 @@ class Main {
     Cell c = new Cell(7);
     MyThread t1 = new MyThread(c);
     MyThread t2 = new MyThread(c);
-    t1 ! start();
+    f = t1 ! start();
     t2 ! start();
+    wait(f);
     print(c.getV(),"\n");
   }
 
