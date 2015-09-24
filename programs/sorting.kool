@@ -4,7 +4,7 @@
 
 class Sorting {
   int[] array;
-  int size;
+  int n;
 
   void Sorting(int n) {
     int x[n];
@@ -14,31 +14,31 @@ class Sorting {
     }
     print("Finished reading the ",n," numbers\n");
     array = x;
-    size = n;
+    this.n = n;
   }
 
   void printArray() {
     print("\n");
-    for (int i=0; i<size; ++i) {
+    for (int i=0; i<n; ++i) {
       print(array[i]," ");
     }
     print("\n");
   }
 
-//  void->void getPrintArray() { return printArray; }
+  void->void getPrintArray() { return printArray; }
 
   void reverse() {
-    for (int i=0; i<size/2; ++i) {
+    for (int i=0; i<n/2; ++i) {
       int t = array[i];
-      array[i] = array[size - i - 1];
-      array[size - i - 1] = t;
+      array[i] = array[n - i - 1];
+      array[n - i - 1] = t;
     }
   }
 
-//  void->void getReverse() { return reverse; }
+  void->void getReverse() { return reverse; }
 
   void insertionSort() {
-    for (int i=1; i<size; ++i) {
+    for (int i=1; i<n; ++i) {
       int v = array[i], j = i - 1;
       while (j > 0 && array[j] > v) {  // doing the loop only up to 1
         array[j + 1] = array[j];
@@ -51,11 +51,11 @@ class Sorting {
     }
   }
 
-//  void->void getInsertionSort() { return insertionSort; }
+  void->void getInsertionSort() { return insertionSort; }
 
   void bubbleSort() {
-    for (int i=0; i<size; ++i) {
-      for (int j=0; j<size- 1; ++j) {
+    for (int i=0; i<n; ++i) {
+      for (int j=0; j<n- 1; ++j) {
         if (array[j] > array[j + 1]) {
           int t = array[j + 1];
           array[j + 1] = array[j];
@@ -65,7 +65,7 @@ class Sorting {
     }
   }
 
-//  void->void getBubbleSort() { return bubbleSort; }
+  void->void getBubbleSort() { return bubbleSort; }
 
   void siftDown(int root, int bottom) {
     bool done = false;
@@ -95,12 +95,12 @@ class Sorting {
   }
 
   void heapSort() {
-    int i = size/2 - 1;
+    int i = n/2 - 1;
     while (i >= 0) {
-      siftDown(i, size - 1);
+      siftDown(i, n - 1);
       i = i - 1;
     }
-    i = size - 1;
+    i = n - 1;
     while (i >= 1 ) {
       int t = array[0];
       array[0] = array[i] ;
@@ -110,11 +110,11 @@ class Sorting {
     }
   }
 
-//  void->void getHeapSort() { return heapSort; }
+  void->void getHeapSort() { return heapSort; }
 
-//  void call(void->void m) {
-//    m();
-//  }
+  void call(void->void m) {
+    m();
+  }
 
 }
 
