@@ -112,19 +112,15 @@ class Sorting {
 
   void->void getHeapSort() { return heapSort; }
 
-  void call(void->void m) {
-    m();
-  }
-
 }
 
 
 class Main {
 
-  void map(Sorting s, string[] m, (void -> void)[] f) {
+  void map(string[] m, (void -> void)[] f) {
     for (int i=0; i<sizeOf(f); ++i) {
       print(m[i]);
-      s.call(f[i]);
+      f[i]();
     }
   }
 
@@ -155,6 +151,6 @@ class Main {
     f[ 9] = s.getHeapSort();
     m[10] = "Done!\nThe resulting array is:";
     f[10] = s.getPrintArray();
-    map(s,m,f);
+    map(m,f);
   }
 }
