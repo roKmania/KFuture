@@ -512,6 +512,7 @@ encountered. */
 
 Like in untyped KOOL. */
 
+/*
   rule <thread>...
          <k> spawn S => !T:Int ...</k>
          <env> Env </env>
@@ -523,7 +524,7 @@ Like in untyped KOOL. */
                <id> !T </id>
                <crntObj> Obj </crntObj>
              ...</thread>)
-
+*/
 
 //@ \subsection{Semantics of the new KOOL constructs}
 
@@ -567,6 +568,8 @@ those in untyped KOOL. */
 
   syntax KItem ::= (Id,EnvCellSort)
 
+/*
+
   rule <k> new Class:Id(Vs:Vals) ~> K
            => create(Class) ~> (storeObj ~> ((Class(Vs)); return this;)) </k>
        <env> Env => .Map </env>
@@ -583,6 +586,7 @@ those in untyped KOOL. */
          ...</fstack>
        </control>
 
+*/
   syntax KItem ::= create(Id)
 
   rule <k> create(Class:Id)
@@ -606,20 +610,22 @@ those in untyped KOOL. */
        <envStack> .List => ListItem((Class, <env>Env</env>)) ...</envStack>
     [structural]
 
+/*
   syntax KItem ::= "storeObj"
 
   rule <k> storeObj => . ...</k>
        <crntObj> Obj (<location> L:Int </location> => .) </crntObj>
        <store>... .Map => L |-> objectClosure(Obj) ...</store>
-
+*/
 
 /*@ \subsubsection{Self reference}
 
 Like in untyped KOOL. */
 
+/*
   rule <k> this => objectClosure(Obj) ...</k>
        <crntObj> Obj </crntObj>
-
+*/
 
 /*@ \subsubsection{Object member access}
 
@@ -648,7 +654,7 @@ Like in untyped KOOL. */
 /*  rule <k> super . X => lookupMember(<envStack>EStack</envStack>, X) ...</k>
        <crntClass> Class </crntClass>
        <envStack>... ListItem((Class,EnvC:Bag)) EStack </envStack>
-    [structural]*/
+    [structural]
   rule <k> super . X => lookupMember(<envStack>EStack</envStack>, X) ...</k>
        <crntClass> Class:Id </crntClass>
        <envStack> ListItem((Class,EnvC:Bag)) EStack </envStack>
@@ -657,7 +663,7 @@ Like in untyped KOOL. */
        <crntClass> Class:Id </crntClass>
        <envStack> (ListItem((Class':Id,EnvC:Bag)) => .List) EStack </envStack>
     when Class =/=K Class' [structural]
-
+*/
 /*@\subsubsection{Method invocation}
 
 The method lookup is the same as in untyped KOOL.  */
@@ -679,7 +685,7 @@ The method lookup is the same as in untyped KOOL.  */
             => lookupMember(<envStack>EStack</envStack>,X))(_:Exps)...</k>
        <crntClass> Class </crntClass>
        <envStack>... ListItem((Class,_)) EStack </envStack>
-    [structural]*/
+    [structural]
   rule <k> (super . X
             => lookupMember(<envStack>EStack</envStack>,X))(_:Exps)...</k>
        <crntClass> Class:Id </crntClass>
@@ -689,7 +695,7 @@ The method lookup is the same as in untyped KOOL.  */
        <crntClass> Class:Id </crntClass>
        <envStack> (ListItem((Class':Id,_)) => .List) EStack </envStack>
     when Class =/=K Class' [structural]
-
+*/
   context HOLE(_:Exps)
     when getKLabel HOLE ==KLabel '_`(_`) orBool getKLabel HOLE ==KLabel '_`[_`]
 
@@ -735,7 +741,7 @@ Like in untyped KOOL. */
                             <envStack>... ListItem((C,EnvC:Bag)) EStack </envStack>)
               . X
               => lookupMember(<envStack> ListItem((C,EnvC)) EStack </envStack>,
-                              X))  [structural]*/
+                              X))  [structural]
   rule lvalue(objectClosure(<crntClass> C:Id </crntClass>
                             <envStack> ListItem((C,EnvC:Bag)) EStack </envStack>)
               . X
@@ -745,7 +751,7 @@ Like in untyped KOOL. */
                             <envStack> (ListItem((C',EnvC:Bag)) => .List) EStack </envStack>)
               . X)
     when C =/=K C' [structural]
-
+*/
 
 /*@ \subsubsection{Lookup member}
 
