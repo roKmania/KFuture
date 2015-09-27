@@ -2,8 +2,8 @@ require "kool-typed-dynamic.k"
 
 module FUTURE-SYNTAX
   imports KOOL-TYPED-DYNAMIC-SYNTAX
-  
-  syntax Exp ::= // ... | 
+
+  syntax Exp ::= // ... |
                  Exp "!" Id "(" Exps ")" [avoid, strict(1)]
                | Guard
 
@@ -21,31 +21,28 @@ module FUTURE
 
   configuration <T color="red">
                   <futures>
-                    <future multiplicity="*">
-                      <fid> .K </fid>
-                      <oid> .K </oid>
-                      <mClass> .K </mClass>
-                      <method> .K </method>
-                      <arguments> .K </arguments>
-                      <result multiplicity="?"> .K </result>
-                      <state> sleeping </state>
+                    <future multiplicity="*">       // future
+                      <fid> .K </fid>                 // future identifier
+                      <oid> .K </oid>                 // object identifier
+                      <closure> .K </closure>         // function closure
+                      <arguments> .K </arguments>     // function arguments
+                      <result multiplicity="?"> .K </result> // computed result
+                      <state> sleeping </state>       // state of the future
                     </future>
                   </futures>
                   <objects>
-                    <object multiplicity="*">
-                      <location> 0 </location>
-                      <baseClass> Object </baseClass>
-                      <envStack> .List </envStack>
-                      <token> .K </token>
-                      <waiting-tasks>
+                    <object multiplicity="*">      // object
+                      <location> 0 </location>        // object identifier
+                      <mainClass> Object </mainClass> // creation class
+                      <envStack> .List </envStack>    // stack of class envs
+                      <waiting-tasks>                 // suspended tasks
                         <waiting-task multiplicity="*">
-                          <fId> 0 </fId>
-                          <guard> .K </guard>
+                          <guard> .K </guard>            // set of guards
                           <waiting-task-conf> .Bag </waiting-task-conf>
-                        </waiting-task> 
+                        </waiting-task>
                       </waiting-tasks>
-                      <active-task>
-                        <futureId> 0 </futureId>
+                      <active-task>                  // current task
+                        <futureId> 0 </futureId>       // future identifier
                         <k color="green"> ($PGM:Stmts ~> execute) </k>
                         <br/>
                         <control color="cyan">
@@ -75,125 +72,183 @@ module FUTURE
 
 
 /*
-  Object identifiers (references).
+  (Typed) Object references.
+  An object reference is a triple (Id, MainClass, CurrentClass), where:
+  * Id is an integer identifying the object
+    - corresponding to the contents of the <location> cell
+  * MainClass is the class the object was created with (using new)
+    - used to checking whether the object can be casted to some type
+    - (usually) corresponding to the contents of the <mainClass> cell
+  * CurrentClass is the current class of the object
+    - changed through casting or through calling methods
+    - used for dynamically type checking
+    - (usually) corresponding to the contents of the <crntClass> cell
 */
 
   syntax ObjectVal ::= object(Int,Id,Id)
   syntax Val ::= ObjectVal
 
-/* 
+/*
   Redefinition of the semantics for new.
-  - an instance of the class is created and
+  - an instance of the class is created (<object> cell) and
     an unique identifier is assigned to it
-  - then the constructor is called as an ususal method
-  - the result is the identifier of the new object
+  - then the "$clinit" special method is called
+    as an usual method to perform basic object allocation and initialization
+  - once that is done, the constructor is called
+  - Finally, the result is a reference to the new object
+  - Both class initialization and constructor are blocking to ensure
+    the object reference is not exposed during initialization.
 */
-  syntax Id ::= "$clinit" 
+  syntax Id ::= "$clinit"
 
   rule <k> new Class:Id(Vs:Vals)
-           => (object(Id,Class,Class) ! $clinit(.Exps)).get; ~> (object(Id,Class,Class) ! Class(Vs)).get; ~> object(Id,Class,Class) ...</k>
+           => object(Id,Class,Class) . $clinit(.Exps); ~> object(Id,Class,Class).Class(Vs); ~> object(Id,Class,Class) ...</k>
        <nextObjectId> Id:Int => Id +Int 1 </nextObjectId>
        (. => <object>...
-                <k> . </k>
                 <location> Id </location>
-                <baseClass> Class </baseClass>
+                <mainClass> Class </mainClass>
+                <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>
              ...</object>)
 
 
 /*
   The redefinition of the semantics for this:
+  - this returns a reference to the current object.
 */
 
-  rule <k> this => object(Id,BClass,Class) ...</k>
+  rule <k> this => object(Id,MClass,Class) ...</k>
        <location> Id:Int </location>
        <crntClass> Class:Id </crntClass>
-       <baseClass> BClass:Id </baseClass>
+       <mainClass> MClass:Id </mainClass>
 
 /*
-  The semantics of the method call with futures.
+  The semantics of a future task call.  A future call call creates a new
+  future task and evaluates to a reference to the newly created task.
+  Elements needed:
+  * the object reference (where the method is to be called)
+  * the name of the method to be called
+  * the (already evaluated) arguments to be passed to the method.
+  *
+  * The method is looked up in the envStack of the object,
+    starting from the main class of the object
 */
 
   // the arguments are strict such that they are evaluated first
   context _:ObjectVal ! Method:Id(HOLE)
 
-  // future identifiers
-  syntax Val ::= future(Int)
-
-/*
-  - a method call creates a new futures and "returns" the identifier
-    of the new future 
-*/
-  rule <k> object(X:Int,_,_) ! Method:Id(Vs:Vals)
+  rule <k> object(OId,Class,_) ! Method:Id(Vs:Vals)
         => future(F) ...</k>
-       (. => <future>... <fid> F </fid> <oid> X </oid>
-                         <method> Method </method> <arguments> Vs </arguments>
+       (. => <future>...
+               <fid> F </fid> <oid> OId </oid>
+               <closure>
+                 lookupMethod(Class, Method)
+               </closure>
+               <arguments> Vs </arguments>
              ...</future>)
        <nextFutureId> F:Int => F +Int 1 </nextFutureId>
 
-/* 
-  The activation of a sleeping future
+  // future references encapsulate the identifier of the future
+  //  i.e., the contents of the <fid> cell
+  syntax Val ::= future(Int)
+
+/*
+  The activation of a sleeping future task
+  * a future task can only be activated if there is no active state
+    - signaled by futureId holding -1
+  * performCall does the actual method invocation
 */
 
-  rule <location> Id </location>
-       <envStack> ES:List </envStack>
-       (<active-task>... <futureId> 0 </futureId> <k> . </k> ...</active-task>
-        =>
-        <active-task>...
-           <futureId> F </futureId>
-           <k> lookupThis(<envStack> ES </envStack>, Class, Method) ( Vs ) </k>
-        ...</active-task>
-       )
-       <future> 
+  rule <future>
          <fid> F:Int </fid>
          <oid> Id:Int </oid>
-         <mClass> Class </mClass>
-         <method> Method:Id </method>
+         <closure> Closure </closure>
          <arguments> Vs:Vals </arguments>
          <state> sleeping => active </state>
        </future>
+       <location> Id </location>
+       (<active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>
+        =>
+        <active-task>...
+           <futureId> F </futureId>
+           <k> performCall(Closure, Vs) </k>
+        ...</active-task>
+       )
     [futureStart]
 
-/*
-  The semantics of a local call (???)
+
+
+/* Looking up the location of a future method by class and method name
+  * The method is looked up in the envStack of the object,
+    starting from specified class
+*/
+  syntax KItem ::= lookupMethod(Id,Id)
+  rule <k> lookupMethod(Class,Method)
+        => lookupThis(<envStack> ES </envStack>, Class, Method)
+       ...</k>
+       <envStack> ES:List </envStack>
+
+/*  Lookup helper.  Finds the reference class in the environment stack,
+    then invokes lookupMember.
 */
 
-  rule <k> methodClosure(_->T,Class,OL,Ps,S)(Vs:Vals) 
+  syntax KItem ::= lookupThis(EnvStackCellSort,K,Id)  [function]
+  rule lookupThis(_, _, $clinit) => $clinitClosure
+  syntax Val ::= "$clinitClosure"
+  rule lookupThis(<envStack>ListItem((Class':Id,_)) EStack </envStack>, Class:Id, X)
+    => lookupThis(<envStack>EStack</envStack>, Class, X)
+    requires Class =/=K Class'
+  rule lookupThis(<envStack>ListItem((Class:Id,B:Bag)) EStack </envStack>, Class, X)
+    => lookupMember(<envStack>ListItem((Class:Id,B:Bag)) EStack</envStack>, X)
+
+
+/*
+  Performing a local call:
+  * Parameters are bound to arguments, then the body is executed
+  * the current class is updated to the class of the method
+*/
+  syntax KItem ::= performCall(K, Vals) [strict(1)]
+
+  rule <k> performCall(methodClosure(_,Class,OL,Ps,S), Vs:Vals)
            => mkDecls(Ps,Vs) S
        </k>
        <crntClass> _ => Class </crntClass>
 
-
-  rule <k> lookupMember(<envStack> .List </envStack>,$clinit)(.Exps) => create(Class) </k>
-       <baseClass> Class:Id </baseClass>
+/*  Semantics for the class initializer. See definition of KOOL for create.
+*/
+  rule <k> performCall($clinitClosure, _) => create(Class) </k>
+       <mainClass> Class:Id </mainClass>
        <envStack> .List => ListItem((Object, <env>.Map</env>)) </envStack>
 
 /*
-  The semantics of a complete method call
+  Method calls desugar into (blocking) future invocations
 */
 
-  rule O:ObjectVal . Method:Id(Vs:Vals) 
+  rule O:ObjectVal . Method:Id(Vs:Vals)
     => (O ! Method(Vs)).get
-  
-  rule <k> super . Method:Id(Vs:Vals) => (superCall(Id, Class) ! Method(Vs)).get
-      ...</k>
-      <crntClass> Class </crntClass>
-      <location> Id:Int </location>
-
-  syntax Val ::= superCall(Int,Id)
 
 /*
-  - a super call creates a new future and "returns" the identifier
-    of the new future 
+  A super call desugars into a normal call using a fake object
+  having the super class as a base.
 */
-  rule <k> superCall(X:Int, Class) ! Method:Id(Vs:Vals)
-        => future(F) ...</k>
-       <className> Class </className>
-       <extends> Class':Id </extends>
-       (. => <future>... <fid> F </fid> <oid> X </oid> <mClass> Class' </mClass>
-                         <method> Method </method> <arguments> Vs </arguments>
+
+  rule <k> super . Method:Id(Vs:Vals)
+        => object(Id, Class', Class') . Method(Vs)
+       ...</k>
+      <crntClass> Class </crntClass>
+      <location> Id:Int </location>
+      <className> Class </className>
+      <extends> Class':Id </extends>
+
+/* Calls using closure desugar into future calls on the closure's object
+*/
+  rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
+        => future(F).get ...</k>
+       (. => <future>...
+               <fid> F </fid> <oid> OId </oid>
+               <closure> methodClosure(Type,Class,OId,Ps,S) </closure>
+               <arguments> Vs </arguments>
              ...</future>)
        <nextFutureId> F:Int => F +Int 1 </nextFutureId>
-
 
 /*
   The rules for blocking/unblocking tasks:
@@ -202,7 +257,7 @@ module FUTURE
   // the case when the future is not done
   rule (<active-task> Task  
            <k> future(Id).get ~> K </k> 
-        </active-task> => <active-task>... <k> . </k> ...</active-task> ) 
+        </active-task> => <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> ) 
        (. => <waiting-task> <guard> future(Id).get ~> K </guard> 
                               <waiting-task-conf> Task </waiting-task-conf>
              </waiting-task>)
@@ -212,7 +267,7 @@ module FUTURE
   [futureBlock]
 
   // the case when the future is done
-  rule (<active-task>... <futureId> 0 </futureId> <k> . </k> ...</active-task>
+  rule (<active-task>... <futureId> -1 </futureId> ...</active-task>
         =>
         <active-task> Task <k> future(Id).get ~> K </k> </active-task>
        )
@@ -220,11 +275,13 @@ module FUTURE
                          <waiting-task-conf> Task </waiting-task-conf>
         </waiting-task> => .)
        <fid> Id </fid>
-       <state> completed </state> 
-  [futureUnblock]
+       <state> completed </state>
+    [futureUnblock]
 
 /*
   The new semantics of the return statement:
+  * When the only thread of the task returns, we deactivate the task
+    and set the returned value as the result of the corresponding future.
 */
 
   rule ( <active-task>...
@@ -232,12 +289,15 @@ module FUTURE
             <k> return V:Val; ...</k> 
          ...</active-task>
         => 
-         <active-task>... <k> . </k> ...</active-task>) 
+         <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>) 
        <future>... <fid> Id </fid>
          <state> active => completed </state>
          (. => <result> V </result>)
        ...</future>
 
+/* If the active task completes without returning, set the result value
+   to nothing and signal future completion.
+*/
   syntax Val ::= "nothing"
 
   rule ( <active-task>...
@@ -245,7 +305,7 @@ module FUTURE
            <k> . </k> 
          ...</active-task>
         =>
-         <active-task>... <k> . </k> ...</active-task> ) 
+         <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> ) 
        <future>...
          <fid> Id </fid>
          <state> active => completed </state>
@@ -253,16 +313,18 @@ module FUTURE
        ...</future>
 
 /*
-  The semantics of the get metod:
+  The semantics of future get.
+  The requires clause is due to exceptions; see below.
 */
 
   rule <k> future(Id).get => V ...</k>
        <fid> Id </fid>
        <result> V:Val </result>
     requires isExceptionVal(V) =/=K true
+
 /*
-  Field lookup is allowed only from the current object 
-  and is done relative to the object's class
+  Field lookup is allowed only from the current object
+  and is done relative to the object's current class
 */
   rule <k> object(Id:Int, _, Class:Id) . X
                   =>
@@ -272,10 +334,10 @@ module FUTURE
        <envStack> ES:List </envStack>
   [structural]
 
-
 /* Super Field lookup
+   Similar to the above, but starting one level up in the class hierarchy.
 */
-  rule <k> super . X => lookupThis(<envStack> ES </envStack>, Class', X) 
+  rule <k> super . X => lookupThis(<envStack> ES </envStack>, Class', X)
        ...</k>
        <envStack> ES:List </envStack>
        <crntClass> Class:Id </crntClass>
@@ -292,22 +354,10 @@ module FUTURE
        <location> Id </location>
        <envStack> ES:List </envStack>
   [structural]
-     
 
-
-/*  Lookup Method
-*/
-
-  syntax KItem ::= lookupThis(EnvStackCellSort,K,Id)  [function]
-  rule lookupThis(B,.,Id:Id) => lookupMember(B, Id)
-  rule lookupThis(<envStack>ListItem((Class':Id,_)) EStack </envStack>, Class:Id, X) 
-    => lookupThis(<envStack>EStack</envStack>, Class, X)
-    requires Class =/=K Class'
-  rule lookupThis(<envStack>ListItem((Class:Id,B:Bag)) EStack </envStack>, Class, X)
-    => lookupMember(<envStack>ListItem((Class:Id,B:Bag)) EStack</envStack>, X)
 
 /*
-  TypeOf
+  TypeOf returns the current reference class.
 */
   rule typeOf(object(_,_,Class:Id)) => Class
 
@@ -328,7 +378,10 @@ module FUTURE
   rule unsafeCast(object(Id, BClass:Id, _), Class:Id)
     => object(Id, BClass, Class)
 
-/* Uncaught Exception
+/* Uncaught Exception.
+   If an exception is not caught in the current task, it is returned as
+   an exceptional value.  When get is used on an exceptional value, the
+   exception is thrown again.
 */
 
   syntax ExceptionVal ::= exception(Val)
