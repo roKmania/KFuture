@@ -151,6 +151,18 @@ module FUTURE
   //  i.e., the contents of the <fid> cell
   syntax Val ::= future(Int)
 
+
+/* Looking up the location of a future method by class and method name
+  * The method is looked up in the envStack of the object,
+    starting from specified class
+*/
+  syntax KItem ::= lookupMethod(Id,Id)
+  rule <k> lookupMethod(Class,Method)
+        => lookupThis(<envStack> ES </envStack>, Class, Method)
+       ...</k>
+       <envStack> ES:List </envStack>
+
+
 /*
   The activation of a sleeping future task
   * a future task can only be activated if there is no active state
@@ -174,32 +186,6 @@ module FUTURE
         ...</active-task>
        )
     [futureStart]
-
-
-
-/* Looking up the location of a future method by class and method name
-  * The method is looked up in the envStack of the object,
-    starting from specified class
-*/
-  syntax KItem ::= lookupMethod(Id,Id)
-  rule <k> lookupMethod(Class,Method)
-        => lookupThis(<envStack> ES </envStack>, Class, Method)
-       ...</k>
-       <envStack> ES:List </envStack>
-
-/*  Lookup helper.  Finds the reference class in the environment stack,
-    then invokes lookupMember.
-*/
-
-  syntax KItem ::= lookupThis(EnvStackCellSort,K,Id)  [function]
-  rule lookupThis(_, _, $clinit) => $clinitClosure
-  syntax Val ::= "$clinitClosure"
-  rule lookupThis(<envStack>ListItem((Class':Id,_)) EStack </envStack>, Class:Id, X)
-    => lookupThis(<envStack>EStack</envStack>, Class, X)
-    requires Class =/=K Class'
-  rule lookupThis(<envStack>ListItem((Class:Id,B:Bag)) EStack </envStack>, Class, X)
-    => lookupMember(<envStack>ListItem((Class:Id,B:Bag)) EStack</envStack>, X)
-
 
 /*
   Performing a local call:
@@ -255,10 +241,10 @@ module FUTURE
 */
 
   // the case when the future is not done
-  rule (<active-task> Task  
-           <k> future(Id).get ~> K </k> 
-        </active-task> => <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> ) 
-       (. => <waiting-task> <guard> future(Id).get ~> K </guard> 
+  rule (<active-task> Task
+           <k> future(Id).get ~> K </k>
+        </active-task> => <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> )
+       (. => <waiting-task> <guard> future(Id).get ~> K </guard>
                               <waiting-task-conf> Task </waiting-task-conf>
              </waiting-task>)
        <fid> Id </fid>
@@ -271,7 +257,7 @@ module FUTURE
         =>
         <active-task> Task <k> future(Id).get ~> K </k> </active-task>
        )
-       (<waiting-task> <guard> future(Id).get ~> K </guard> 
+       (<waiting-task> <guard> future(Id).get ~> K </guard>
                          <waiting-task-conf> Task </waiting-task-conf>
         </waiting-task> => .)
        <fid> Id </fid>
@@ -286,10 +272,10 @@ module FUTURE
 
   rule ( <active-task>...
             <futureId> Id </futureId>
-            <k> return V:Val; ...</k> 
+            <k> return V:Val; ...</k>
          ...</active-task>
-        => 
-         <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>) 
+        =>
+         <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>)
        <future>... <fid> Id </fid>
          <state> active => completed </state>
          (. => <result> V </result>)
@@ -302,10 +288,10 @@ module FUTURE
 
   rule ( <active-task>...
            <futureId> Id </futureId>
-           <k> . </k> 
+           <k> . </k>
          ...</active-task>
         =>
-         <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> ) 
+         <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> )
        <future>...
          <fid> Id </fid>
          <state> active => completed </state>
@@ -354,6 +340,20 @@ module FUTURE
        <location> Id </location>
        <envStack> ES:List </envStack>
   [structural]
+
+
+/*  Lookup helper.  Finds the reference class in the environment stack,
+    then invokes lookupMember.
+*/
+
+  syntax KItem ::= lookupThis(EnvStackCellSort,K,Id)  [function]
+  rule lookupThis(_, _, $clinit) => $clinitClosure
+  syntax Val ::= "$clinitClosure"
+  rule lookupThis(<envStack>ListItem((Class':Id,_)) EStack </envStack>, Class:Id, X)
+    => lookupThis(<envStack>EStack</envStack>, Class, X)
+    requires Class =/=K Class'
+  rule lookupThis(<envStack>ListItem((Class:Id,B:Bag)) EStack </envStack>, Class, X)
+    => lookupMember(<envStack>ListItem((Class:Id,B:Bag)) EStack</envStack>, X)
 
 
 /*
