@@ -11,8 +11,6 @@ module FUTURE-SYNTAX
   syntax Guard ::= "wait" | Id "?"
   syntax Type ::= "!" Type
   syntax Stmt ::= "await" Exp ";"
-                | Block "[]" Block [right]
-                | Block "||" Block [right]
 endmodule
 
 module FUTURE
@@ -39,40 +37,20 @@ module FUTURE
                       <envStack> .List </envStack>    // stack of class envs
                       <waiting-tasks>                 // suspended tasks
                         <waiting-task multiplicity="*">
-                          <fId> 0 </fId>                 // future identifier
-                          <task-guards> .Set </task-guards>  // set of guards
+                          <guard> .K </guard>            // set of guards
                           <waiting-task-conf> .Bag </waiting-task-conf>
                         </waiting-task>
                       </waiting-tasks>
                       <active-task>                  // current task
                         <futureId> 0 </futureId>       // future identifier
-                        <taskState> active </taskState>// state = active/sleeping
-                        <blocked-threads>              // suspended threads
-                          <blocked-thread multiplicity="*">
-                            <guard> .K </guard>          // guard to wake thread
-                            <blocked-thread-conf> .Bag </blocked-thread-conf>
-                          </blocked-thread>
-                        </blocked-threads>
-                        <threads color="orange">      // running threads
-                           <thread multiplicity="*" color="yellow">
-                              <k color="green"> ($PGM:Stmts ~> execute) </k>
-
-                              <br/>
-                              <control color="cyan">
-                                <crntClass> Object </crntClass>
-                                <fstack color="blue"> .List </fstack>
-                                <xstack color="purple"> .List </xstack>
-                                <return color="LimeGreen"> void </return>  // KOOL
-                              </control>
-                              <br/>
-                              <env color="violet"> .Map </env>
-                              <holds color="black"> .Map </holds>
-                              <id color="pink"> 0 </id>
-                           </thread>
-                        </threads>
+                        <k color="green"> ($PGM:Stmts ~> execute) </k>
                         <br/>
-                        <busy color="cyan">.Set </busy>
-                        <terminated color="red"> .Set </terminated>
+                        <control color="cyan">
+                           <crntClass> Object </crntClass>
+                           <xstack color="purple"> .List </xstack>
+                        </control>
+                        <br/>
+                        <env color="violet"> .Map </env>
                       </active-task>
                       <nextLoc color="gray"> 0 </nextLoc>
                       <store color="white"> .Map </store>
@@ -129,7 +107,7 @@ module FUTURE
        (. => <object>...
                 <location> Id </location>
                 <mainClass> Class </mainClass>
-                <active-task>... <futureId> -1 </futureId> ...</active-task>
+                <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>
              ...</object>)
 
 
@@ -174,25 +152,15 @@ module FUTURE
   syntax Val ::= future(Int)
 
 
-
 /* Looking up the location of a future method by class and method name
   * The method is looked up in the envStack of the object,
     starting from specified class
 */
   syntax KItem ::= lookupMethod(Id,Id)
-  rule <future>
-         <fid> F:Int </fid>
-         <oid> Id:Int </oid>
-          <closure>
-             lookupMethod(Class,Method)
-          => lookupThis(<envStack> ES </envStack>, Class, Method)
-          </closure>
-         <arguments> Vs:Vals </arguments>
-         <state> sleeping </state>
-       </future>
-       <location> Id </location>
+  rule <k> lookupMethod(Class,Method)
+        => lookupThis(<envStack> ES </envStack>, Class, Method)
+       ...</k>
        <envStack> ES:List </envStack>
-
 
 
 /*
@@ -210,13 +178,13 @@ module FUTURE
          <state> sleeping => active </state>
        </future>
        <location> Id </location>
-       <envStack> ES:List </envStack>
-       <futureId> -1 => F </futureId>
-       <threads>
-         .
-         =>
-         <thread>...  <k> performCall(Closure, Vs) </k> ...</thread>
-       </threads>
+       (<active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>
+        =>
+        <active-task>...
+           <futureId> F </futureId>
+           <k> performCall(Closure, Vs) </k>
+        ...</active-task>
+       )
     [futureStart]
 
 /*
@@ -230,7 +198,6 @@ module FUTURE
            => mkDecls(Ps,Vs) S
        </k>
        <crntClass> _ => Class </crntClass>
-
 
 /*  Semantics for the class initializer. See definition of KOOL for create.
 */
@@ -258,7 +225,7 @@ module FUTURE
       <className> Class </className>
       <extends> Class':Id </extends>
 
-/* Calls using closured desugar into future calls on the closure's object
+/* Calls using closure desugar into future calls on the closure's object
 */
   rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
         => future(F).get ...</k>
@@ -273,51 +240,25 @@ module FUTURE
   The rules for blocking/unblocking tasks:
 */
 
-  // A thread blocks while waiting for a future to complete
-  rule (<thread> <k> future(Id).get ~> K </k> T:Bag </thread> => . )
-       (. => <blocked-thread> <guard> future(Id).get ~> K </guard>
-                              <blocked-thread-conf> T </blocked-thread-conf>
-             </blocked-thread>)
+  // the case when the future is not done
+  rule (<active-task> Task
+           <k> future(Id).get ~> K </k>
+        </active-task> => <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> )
+       (. => <waiting-task> <guard> future(Id).get ~> K </guard>
+                              <waiting-task-conf> Task </waiting-task-conf>
+             </waiting-task>)
        <fid> Id </fid>
        <state> S:State </state>
-       requires S =/=K completed [futureBlock]
+       requires S =/=K completed
+  [futureBlock]
 
-  // A thread unblocks when the future is done
-  rule (. => <thread> <k> future(Id).get ~> K </k> T:Bag </thread>)
-       (<blocked-thread> <guard> future(Id).get ~> K </guard>
-                         <blocked-thread-conf> T </blocked-thread-conf>
-        </blocked-thread> => .)
-       <taskState> _ => active </taskState>
-       <fid> Id </fid>
-       <state> completed </state>
-
-/*
-  The rule that transforms an active task into an waiting task
-  * If all threads are blocked, we suspend the task.
-  * We use -1 for futureId to signal that there is no active task
-  * task-guards is a collection of all guards from the blocked threads
-*/
-  rule <futureId> F => -1 </futureId>
-       <blocked-threads> BT:Bag => . </blocked-threads>
-       <taskState> active </taskState>
-       <threads> . </threads>
-       (. => <waiting-task> <fId> F </fId>
-                            <task-guards> getGuards(BT) </task-guards>
-                            <waiting-task-conf> BT </waiting-task-conf>
-             </waiting-task>)
-      requires notBool(BT ==Bag .Bag)
-
-/*
-  The rule transforming a waiting task into an active one.
-  * When any of the task guards is completed, we can activate a waiting task
-    if there is no active task (futureId contains -1).
-*/
-  rule <blocked-threads> . => BT </blocked-threads>
-       <taskState> _ => sleeping </taskState>
-       <futureId> -1 => F </futureId>
-       (<waiting-task> <fId> F </fId>
-                       <task-guards>... SetItem(future(Id).get) ...</task-guards>
-                       <waiting-task-conf> BT </waiting-task-conf>
+  // the case when the future is done
+  rule (<active-task>... <futureId> -1 </futureId> ...</active-task>
+        =>
+        <active-task> Task <k> future(Id).get ~> K </k> </active-task>
+       )
+       (<waiting-task> <guard> future(Id).get ~> K </guard>
+                         <waiting-task-conf> Task </waiting-task-conf>
         </waiting-task> => .)
        <fid> Id </fid>
        <state> completed </state>
@@ -329,39 +270,33 @@ module FUTURE
     and set the returned value as the result of the corresponding future.
 */
 
-  rule
-    <futureId> Id => -1 </futureId>
-    <blocked-threads> . </blocked-threads>
-    (   <threads>   // force single thread returns
-          <thread>...
-             <k> return V:Val; ...</k>
-          ...</thread>
-         </threads>
-     => <threads> . </threads>
-    )
-/*  Alternative semantics:  Just end returning thread; other can continue
-    (<thread>... <k> return V:Val; ...</k> ...</thread> => .)
-*/
-    <future>... <fid> Id </fid>
-                <state> active => completed </state>
-                (. => <result> V </result>)
-    ...</future>
-
+  rule ( <active-task>...
+            <futureId> Id </futureId>
+            <k> return V:Val; ...</k>
+         ...</active-task>
+        =>
+         <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>)
+       <future>... <fid> Id </fid>
+         <state> active => completed </state>
+         (. => <result> V </result>)
+       ...</future>
 
 /* If the active task completes without returning, set the result value
    to nothing and signal future completion.
 */
   syntax Val ::= "nothing"
 
-  rule
-    <futureId> Id => -1 </futureId>
-    <threads> . </threads>
-    <blocked-threads> . </blocked-threads>
-    <future>... <fid> Id </fid>
-                <state> active => completed </state>
-                (. => <result> nothing </result>)
-    ...</future>
-
+  rule ( <active-task>...
+           <futureId> Id </futureId>
+           <k> . </k>
+         ...</active-task>
+        =>
+         <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> )
+       <future>...
+         <fid> Id </fid>
+         <state> active => completed </state>
+         (. => <result> nothing </result>)
+       ...</future>
 
 /*
   The semantics of future get.
@@ -421,8 +356,6 @@ module FUTURE
     => lookupMember(<envStack>ListItem((Class:Id,B:Bag)) EStack</envStack>, X)
 
 
-
-
 /*
   TypeOf returns the current reference class.
 */
@@ -461,31 +394,5 @@ module FUTURE
   rule <k> future(Id).get => throw V; ...</k>
        <fid> Id </fid>
        <result> exception(V:Val) </result>
-
-/*  Spawn
-*/
-  rule <thread>...
-         <k> spawn S => !T:Int ...</k>
-         <env> Env </env>
-       ...</thread>
-       (. => <thread>...
-               <k> S </k>
-               <env> Env </env>
-               <id> !T </id>
-             ...</thread>)
-
-/*
-  Auxiliary stuff:
-*/
-  rule .Bag ==Bag .Bag => true
-  rule (_:BagItem _:Bag ==Bag .Bag) => false
-  rule (.Bag ==Bag _:BagItem _:Bag) => false
-  rule I:BagItem B:Bag ==Bag I B':Bag => B ==Bag B'
-
-  syntax Set ::= getGuards(Bag) [function]
-
-  rule getGuards(<blocked-thread>... <guard> future(Id).get ...</guard>
-                 ...</blocked-thread> B:Bag) => getGuards(B) SetItem(future(Id).get)
-  rule getGuards(.Bag) => .Set
 
 endmodule
