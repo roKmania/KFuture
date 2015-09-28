@@ -211,7 +211,11 @@ module FUTURE
 */
 
   rule O:ObjectVal . Method:Id(Vs:Vals)
-    => (O ! Method(Vs)).get
+    => O ! Method(Vs) ~> waitAndGet
+
+  syntax KItem ::= "waitAndGet"
+
+  rule future(Id) ~> waitAndGet => await(future(Id) ?); ~> future(Id).get
 
 /*
   A super call desugars into a normal call using a fake object
@@ -229,7 +233,7 @@ module FUTURE
 /* Calls using closure desugar into future calls on the closure's object
 */
   rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
-        => future(F).get ...</k>
+        => future(F) ~> waitAndGet ...</k>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
                <closure> methodClosure(Type,Class,OId,Ps,S) </closure>
@@ -334,11 +338,7 @@ module FUTURE
   The requires clause is due to exceptions; see below.
 */
 
-  rule future(Id).get => await(future(Id) ?); ~> getResult(Id)
-
-  syntax KItem ::= getResult(Int)
-
-  rule <k> getResult(Id) => V ...</k>
+  rule <k> future(Id).get => V ...</k>
        <fid> Id </fid>
        <result> V:Val </result>
     requires isExceptionVal(V) =/=K true
@@ -435,7 +435,7 @@ module FUTURE
        <xstack> . </xstack>
 
 
-  rule <k> getResult(Id) => throw V; ...</k>
+  rule <k> future(Id).get => throw V; ...</k>
        <fid> Id </fid>
        <result> exception(V:Val) </result>
 
