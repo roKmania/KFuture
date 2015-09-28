@@ -47,8 +47,10 @@ module FUTURE
                         <k color="green"> ($PGM:Stmts ~> execute) </k>
                         <br/>
                         <control color="cyan">
-                           <crntClass> Object </crntClass>
+                           <fstack color="blue"> .List </fstack>
                            <xstack color="purple"> .List </xstack>
+                           <return color="LimeGreen"> void </return>  // KOOL
+                           <crntClass> Object </crntClass>
                         </control>
                         <br/>
                         <env color="violet"> .Map </env>
@@ -103,7 +105,7 @@ module FUTURE
   syntax Id ::= "$clinit"
 
   rule <k> new Class:Id(Vs:Vals)
-           => object(Id,Class,Class) . $clinit(.Exps); ~> object(Id,Class,Class).Class(Vs); ~> object(Id,Class,Class) ...</k>
+           => object(Id,Class,Class) . $clinit(Vs) ...</k>
        <nextObjectId> Id:Int => Id +Int 1 </nextObjectId>
        (. => <object>...
                 <location> Id </location>
@@ -199,17 +201,27 @@ module FUTURE
 
 /*  Semantics for the class initializer. See definition of KOOL for create.
 */
-  rule <k> performCall($clinitClosure, _) => create(Class) </k>
+  rule <k> performCall($clinitClosure, Vs:Vals) => create(Class) ~> this.Class(Vs); ~> return this; </k>
        <mainClass> Class:Id </mainClass>
        <envStack> .List => ListItem((Object, <env>.Map</env>)) </envStack>
 
 /*
-  Method calls desugar into (blocking) future invocations
+  Method calls to other objects desugar into (blocking) future invocations
 */
 
-  rule O:ObjectVal . Method:Id(Vs:Vals)
-    => O ! Method(Vs) ~> waitAndGet
+  rule <k> object(Id,BClass,Class) . Method:Id(Vs:Vals)
+        => object(Id,BClass,Class) ! Method(Vs) ~> waitAndGet ...</k>
+       <location> Id' </location>
+    requires Id =/=K Id'
 
+/* Method calls in the current object look up the method in the object's 
+   environment.
+*/
+
+  rule <k> object(Id, BClass, _) . Method:Id(Vs:Vals)
+        => lookupThis(<envStack> ES </envStack>, BClass, Method) (Vs) ...</k>
+       <location> Id </location>
+       <envStack> ES:List </envStack>
 
 /* Waiting for a future to complete, then getting its value.
 */
@@ -235,12 +247,38 @@ module FUTURE
 */
   rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
         => future(F) ~> waitAndGet ...</k>
+       <location> OId' </location>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
                <closure> methodClosure(Type,Class,OId,Ps,S) </closure>
                <arguments> Vs </arguments>
              ...</future>)
        <nextFutureId> F:Int => F +Int 1 </nextFutureId>
+     requires OId =/=K OId'
+
+/*@ Method closure application for the current object remains basically
+the same as for KOOL, saving the current context before binding the 
+arguments and calling the method.
+*/
+
+  syntax KItem ::= (Map,K,ControlCellFragment)
+
+  rule <k> methodClosure(_->T,Class,OL,Ps,S)(Vs:Vals) ~> K
+           => mkDecls(Ps,Vs) S ~> return; </k>
+       <location> OL </location>
+       <env> Env => .Map </env>
+       <br/>
+       <control>
+          C
+          <fstack> .List 
+              => ListItem((Env, K, C
+                                   <return> T' </return>
+                                   <crntClass> Class' </crntClass>))
+          ...</fstack>
+          <crntClass> Class' => Class </crntClass>
+          <return> T' => T </return>
+       </control>
+
 
 /*
   The rules for blocking/unblocking tasks:
@@ -310,6 +348,18 @@ module FUTURE
        <fid> Id </fid>
        <state> State </state>
 
+/* Return when there are stack frames on the function stack
+*/
+
+  rule <k> return V:Val; ~> _
+           => subtype(typeOf(V), T) ~> true? ~> unsafeCast(V, T) ~> K
+       </k>
+       <control>
+         <fstack> ListItem((Env, K, C)) => .List ...</fstack>
+         (<return> T:Type </return> _ => C)
+       </control>
+       <env> _ => Env </env>
+
 /*
   The new semantics of the return statement:
   * When the only thread of the task returns, we deactivate the task
@@ -319,6 +369,7 @@ module FUTURE
   rule ( <active-task>...
             <futureId> Id </futureId>
             <k> return V:Val; ...</k>
+            <fstack> .List </fstack>
          ...</active-task>
         =>
          <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>)
@@ -335,6 +386,7 @@ module FUTURE
   rule ( <active-task>...
            <futureId> Id </futureId>
            <k> . </k>
+           <fstack> .List </fstack>
          ...</active-task>
         =>
          <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> )
