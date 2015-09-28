@@ -25,6 +25,7 @@ module FUTURE
                       <fid> .K </fid>                 // future identifier
                       <oid> .K </oid>                 // object identifier
                       <closure> .K </closure>         // function closure
+                      <returnType> .K </returnType>
                       <arguments> .K </arguments>     // function arguments
                       <result multiplicity="?"> .K </result> // computed result
                       <state> sleeping </state>       // state of the future
@@ -137,7 +138,7 @@ module FUTURE
   context _:ObjectVal ! Method:Id(HOLE)
 
   rule <k> object(OId,Class,_) ! Method:Id(Vs:Vals)
-        => future(F) ...</k>
+        => preFuture(F) ...</k>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
                <closure>
@@ -149,18 +150,42 @@ module FUTURE
 
   // future references encapsulate the identifier of the future
   //  i.e., the contents of the <fid> cell
-  syntax Val ::= future(Int)
+  syntax Val ::= future(Int,Type)
+         
+/* A pre-future becomes a future reference when the return type of the 
+   method becomes known */ 
+  syntax KItem ::= preFuture(Int)
 
+  rule <k> preFuture(F) => future(F,T) ...</k>
+       <fid> F </fid>
+       <returnType> T:Type </returnType>
 
 /* Looking up the location of a future method by class and method name
   * The method is looked up in the envStack of the object,
     starting from specified class
 */
-  syntax KItem ::= lookupMethod(Id,Id)
-  rule <k> lookupMethod(Class,Method)
-        => lookupThis(<envStack> ES </envStack>, Class, Method)
-       ...</k>
+  syntax LookupMethod ::= lookupMethod(Id,Id)
+  rule <oid> OId </oid>
+       <closure> lookupMethod(Class,Method)
+              => lookupThis(<envStack> ES </envStack>, Class, Method)
+       ...</closure>
+       <location> OId </location>
        <envStack> ES:List </envStack>
+
+  rule <oid> OId </oid>
+       <closure> lookup(L) </closure>
+       <returnType> .K => T </returnType>
+       <location> OId </location>
+       <store>... L |-> methodClosure(_->T,_,_,_,_) ...</store>
+
+  rule <closure> methodClosure(_->T,_,_,_,_) </closure>
+       <returnType> .K => T </returnType>
+
+  rule <oid> OId </oid>
+       <closure> $clinitClosure </closure>
+       <returnType> .K => Class </returnType>
+       <location> OId </location>
+       <mainClass> Class </mainClass>
 
 
 /*
@@ -170,13 +195,13 @@ module FUTURE
   * performCall does the actual method invocation
 */
 
-  rule <future>
+  rule <future>...
          <fid> F:Int </fid>
          <oid> Id:Int </oid>
          <closure> Closure </closure>
          <arguments> Vs:Vals </arguments>
          <state> sleeping => active </state>
-       </future>
+       ...</future>
        <location> Id </location>
        (<active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task>
         =>
@@ -185,6 +210,7 @@ module FUTURE
            <k> performCall(Closure, Vs) </k>
         ...</active-task>
        )
+    requires isLookupMethod(Closure) =/=K true
     [futureStart]
 
 /*
@@ -228,7 +254,7 @@ module FUTURE
 
   syntax KItem ::= "waitAndGet"
 
-  rule future(Id) ~> waitAndGet => await(future(Id) ?); ~> future(Id).get
+  rule future(Id,T) ~> waitAndGet => await(future(Id,T) ?); ~> future(Id,T).get
 
 /*
   A super call desugars into a normal call using a fake object
@@ -245,12 +271,12 @@ module FUTURE
 
 /* Calls using closure desugar into future calls on the closure's object
 */
-  rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
-        => future(F) ~> waitAndGet ...</k>
+  rule <k>  methodClosure(T -> T',Class,OId,Ps,S) (Vs:Vals)
+        => future(F, T') ~> waitAndGet ...</k>
        <location> OId' </location>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
-               <closure> methodClosure(Type,Class,OId,Ps,S) </closure>
+               <closure> methodClosure(T -> T',Class,OId,Ps,S) </closure>
                <arguments> Vs </arguments>
              ...</future>)
        <nextFutureId> F:Int => F +Int 1 </nextFutureId>
@@ -332,7 +358,7 @@ arguments and calling the method.
   rule waiting(.Bag) => .
 
   // If waiting upon a completed future, then don't wait anymore
-  rule (<guard>... SetItem(future(Id) ?) ...</guard> => .)
+  rule (<guard>... SetItem(future(Id,_) ?) ...</guard> => .)
        <fid> Id </fid>
        <state> completed </state>
 
@@ -344,7 +370,7 @@ arguments and calling the method.
 /* Semantics for Future ?
 */
 
-  rule <k> future(Id) ? => State ==K completed ...</k>
+  rule <k> future(Id,_) ? => State ==K completed ...</k>
        <fid> Id </fid>
        <state> State </state>
 
@@ -381,7 +407,6 @@ arguments and calling the method.
 /* If the active task completes without returning, set the result value
    to nothing and signal future completion.
 */
-  syntax Val ::= "nothing"
 
   rule ( <active-task>...
            <futureId> Id </futureId>
@@ -393,7 +418,8 @@ arguments and calling the method.
        <future>...
          <fid> Id </fid>
          <state> active => completed </state>
-         (. => <result> nothing </result>)
+         <returnType> T </returnType>
+         (. => <result> nothing(T) </result>)
        ...</future>
 
 /*
@@ -401,7 +427,9 @@ arguments and calling the method.
   The requires clause is due to exceptions; see below.
 */
 
-  rule <k> future(Id).get => V ...</k>
+  rule <k> future(Id,T).get
+        => subtype(typeOf(V), T) ~> true? ~> unsafeCast(V, T)
+       ...</k>
        <fid> Id </fid>
        <result> V:Val </result>
     requires isExceptionVal(V) =/=K true
@@ -498,13 +526,14 @@ arguments and calling the method.
        <xstack> . </xstack>
 
 
-  rule <k> future(Id).get => throw V; ...</k>
+  rule <k> future(Id,_).get => throw V; ...</k>
        <fid> Id </fid>
        <result> exception(V:Val) </result>
 
-/* Hack for future types
+/* Rules for typing future references
 */
-  rule subtype( typeOf( future(_)), ! _) => true
-  rule unsafeCast(future(Id), ! _) => future(Id)
+  rule typeOf(future(_,T)) => ! T
+  rule subtype(! T, ! T') => subtype(T, T')
+  rule unsafeCast(future(Id, T), ! T') => future(Id, T')
 
 endmodule
