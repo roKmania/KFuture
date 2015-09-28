@@ -37,7 +37,7 @@ module FUTURE
                       <envStack> .List </envStack>    // stack of class envs
                       <waiting-tasks>                 // suspended tasks
                         <waiting-task multiplicity="*">
-                          <guard multiplicity="?"> .Set </guard>
+                          <guard multiplicity="?"> .Set </guard>  // set of disjunctive guards fro the current waiting task
                           <waiting-k> .K </waiting-k>
                           <waiting-task-conf> .Bag </waiting-task-conf>
                         </waiting-task>
@@ -129,9 +129,6 @@ module FUTURE
   * the object reference (where the method is to be called)
   * the name of the method to be called
   * the (already evaluated) arguments to be passed to the method.
-  *
-  * The method is looked up in the envStack of the object,
-    starting from the main class of the object
 */
 
   // the arguments are strict such that they are evaluated first
@@ -213,6 +210,10 @@ module FUTURE
   rule O:ObjectVal . Method:Id(Vs:Vals)
     => O ! Method(Vs) ~> waitAndGet
 
+
+/* Waiting for a future to complete, then getting its value.
+*/
+
   syntax KItem ::= "waitAndGet"
 
   rule future(Id) ~> waitAndGet => await(future(Id) ?); ~> future(Id).get
@@ -272,22 +273,32 @@ module FUTURE
 
 /* Basic semantics for await
 */
+
+  // Sequencing ands
   rule await(E1 && E2); => await(E1); ~> await(E2);
+  // reducing trues 
   rule await(true); => .
-  context waiting(<guard> _:Set SetItem(HOLE ?) </guard>)
+  // transforming other conditions in sets of disjunctive guards
   rule await(E ?); => waiting(<guard> SetItem(E ?)</guard>)
   rule await(wait); => waiting(<guard> SetItem(wait)</guard>)
   rule await(E1 || E2); => waiting(<guard> SetItem(E1) SetItem(E2)</guard>)
 
   syntax KItem ::= waiting(Bag)
+  // evaluating future expressions to future references
+  context waiting(<guard> _:Set SetItem(HOLE ?) </guard>)
+  // if one of the conditions is true, the disjunction is satified
   rule <guard>... SetItem(true) ...</guard> => .
+  // splitting disjunctions into separate guards
   rule <guard>... SetItem(E1 || E2) => SetItem(E1) SetItem(E2) ...</guard>
+  // An empty bag means the guard is satisfied.
   rule waiting(.Bag) => .
 
+  // If waiting upon a completed future, then don't wait anymore
   rule (<guard>... SetItem(future(Id) ?) ...</guard> => .)
        <fid> Id </fid>
        <state> completed </state>
 
+  // If waiting upon wait, then don't wait anymore
   rule <waiting-task>...
          <guard>... SetItem(wait) ...</guard> => .
        ...</waiting-task>
