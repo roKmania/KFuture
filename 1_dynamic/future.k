@@ -254,11 +254,7 @@ module FUTURE
 
   syntax KItem ::= waitAndGet(Exp) [strict]
 
-<<<<<<< HEAD
-  rule future(Id,T) ~> waitAndGet => await(future(Id,T) ?); ~> future(Id,T).get
-=======
-  rule waitAndGet(future(Id)) => await(future(Id) ?); ~> future(Id).get
->>>>>>> master
+  rule waitAndGet(future(Id,T)) => await(future(Id,T) ?); ~> future(Id,T).get
 
 /*
   A super call desugars into a normal call using a fake object
@@ -275,13 +271,8 @@ module FUTURE
 
 /* Calls using closure desugar into future calls on the closure's object
 */
-<<<<<<< HEAD
   rule <k>  methodClosure(T -> T',Class,OId,Ps,S) (Vs:Vals)
-        => future(F, T') ~> waitAndGet ...</k>
-=======
-  rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
-        => waitAndGet(future(F)) ...</k>
->>>>>>> master
+        => waitAndGet(future(F,T')) ...</k>
        <location> OId' </location>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
