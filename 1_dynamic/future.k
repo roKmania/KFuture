@@ -236,7 +236,7 @@ module FUTURE
 */
 
   rule <k> object(Id,BClass,Class) . Method:Id(Vs:Vals)
-        => object(Id,BClass,Class) ! Method(Vs) ~> waitAndGet ...</k>
+        => waitAndGet(object(Id,BClass,Class) ! Method(Vs)) ...</k>
        <location> Id' </location>
     requires Id =/=K Id'
 
@@ -252,9 +252,13 @@ module FUTURE
 /* Waiting for a future to complete, then getting its value.
 */
 
-  syntax KItem ::= "waitAndGet"
+  syntax KItem ::= waitAndGet(Exp) [strict]
 
+<<<<<<< HEAD
   rule future(Id,T) ~> waitAndGet => await(future(Id,T) ?); ~> future(Id,T).get
+=======
+  rule waitAndGet(future(Id)) => await(future(Id) ?); ~> future(Id).get
+>>>>>>> master
 
 /*
   A super call desugars into a normal call using a fake object
@@ -271,8 +275,13 @@ module FUTURE
 
 /* Calls using closure desugar into future calls on the closure's object
 */
+<<<<<<< HEAD
   rule <k>  methodClosure(T -> T',Class,OId,Ps,S) (Vs:Vals)
         => future(F, T') ~> waitAndGet ...</k>
+=======
+  rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
+        => waitAndGet(future(F)) ...</k>
+>>>>>>> master
        <location> OId' </location>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
@@ -388,8 +397,9 @@ arguments and calling the method.
 
 /*
   The new semantics of the return statement:
-  * When the only thread of the task returns, we deactivate the task
-    and set the returned value as the result of the corresponding future.
+  When the active task returns from the main call (function stack is empty),
+  we deactivate the task and set the returned value as the result of the
+  corresponding future.
 */
 
   rule ( <active-task>...
