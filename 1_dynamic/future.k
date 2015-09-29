@@ -210,7 +210,7 @@ module FUTURE
 */
 
   rule <k> object(Id,BClass,Class) . Method:Id(Vs:Vals)
-        => object(Id,BClass,Class) ! Method(Vs) ~> waitAndGet ...</k>
+        => waitAndGet(object(Id,BClass,Class) ! Method(Vs)) ...</k>
        <location> Id' </location>
     requires Id =/=K Id'
 
@@ -226,9 +226,9 @@ module FUTURE
 /* Waiting for a future to complete, then getting its value.
 */
 
-  syntax KItem ::= "waitAndGet"
+  syntax KItem ::= waitAndGet(Exp) [strict]
 
-  rule future(Id) ~> waitAndGet => await(future(Id) ?); ~> future(Id).get
+  rule waitAndGet(future(Id)) => await(future(Id) ?); ~> future(Id).get
 
 /*
   A super call desugars into a normal call using a fake object
@@ -246,7 +246,7 @@ module FUTURE
 /* Calls using closure desugar into future calls on the closure's object
 */
   rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
-        => future(F) ~> waitAndGet ...</k>
+        => waitAndGet(future(F)) ...</k>
        <location> OId' </location>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
