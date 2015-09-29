@@ -113,10 +113,10 @@ untyped KOOL.  */
                 | "return" ";"
                 | "try" Block "catch" "(" Param ")" Block
                 | "throw" Exp ";"                       [strict]
-                | "join" Exp ";"                        [strict]
-                | "acquire" Exp ";"                     [strict]
-                | "release" Exp ";"                     [strict]
-                | "rendezvous" Exp ";"                  [strict]
+//                | "join" Exp ";"                        [strict]
+//                | "acquire" Exp ";"                     [strict]
+//                | "release" Exp ";"                     [strict]
+//                | "rendezvous" Exp ";"                  [strict]
 
   syntax Stmts ::= Stmt
                  | Stmts Stmts                          [right]

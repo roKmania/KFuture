@@ -13,8 +13,8 @@ class Thread {
     id = this ! run();
   }
   
-  int join() {
-    await id;
+  void join() {
+    await(id ?);
   }
   
 }
@@ -56,9 +56,8 @@ class Main {
     Cell c = new Cell(7);
     MyThread t1 = new MyThread(c);
     MyThread t2 = new MyThread(c);
-    f = t1 ! start();
-    t2 ! start();
-    wait(f);
+    t1.start();
+    t2.start();
     print(c.getV(),"\n");
   }
 

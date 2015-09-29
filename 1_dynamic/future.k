@@ -8,7 +8,7 @@ module FUTURE-SYNTAX
                | Guard
 
   syntax Id ::= "get" [token]
-  syntax Guard ::= "wait" | Id "?"
+  syntax Guard ::= "wait" | Exp "?" [strict]
   syntax Type ::= "!" Type
   syntax Stmt ::= "await" Exp ";"
 endmodule
@@ -37,7 +37,8 @@ module FUTURE
                       <envStack> .List </envStack>    // stack of class envs
                       <waiting-tasks>                 // suspended tasks
                         <waiting-task multiplicity="*">
-                          <guard> .K </guard>            // set of guards
+                          <guard multiplicity="?"> .Set </guard>  // set of disjunctive guards fro the current waiting task
+                          <waiting-k> .K </waiting-k>
                           <waiting-task-conf> .Bag </waiting-task-conf>
                         </waiting-task>
                       </waiting-tasks>
@@ -128,9 +129,6 @@ module FUTURE
   * the object reference (where the method is to be called)
   * the name of the method to be called
   * the (already evaluated) arguments to be passed to the method.
-  *
-  * The method is looked up in the envStack of the object,
-    starting from the main class of the object
 */
 
   // the arguments are strict such that they are evaluated first
@@ -209,8 +207,15 @@ module FUTURE
   Method calls desugar into (blocking) future invocations
 */
 
-  rule O:ObjectVal . Method:Id(Vs:Vals)
-    => (O ! Method(Vs)).get
+  rule O:ObjectVal . Method:Id(Vs:Vals) => waitAndGet(O ! Method(Vs))
+
+
+/* Waiting for a future to complete, then getting its value.
+*/
+
+  syntax KItem ::= waitAndGet(Exp) [strict]
+
+  rule waitAndGet(future(Id)) => await(future(Id) ?); ~> future(Id).get
 
 /*
   A super call desugars into a normal call using a fake object
@@ -228,7 +233,7 @@ module FUTURE
 /* Calls using closure desugar into future calls on the closure's object
 */
   rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
-        => future(F).get ...</k>
+        => waitAndGet(future(F)) ...</k>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
                <closure> methodClosure(Type,Class,OId,Ps,S) </closure>
@@ -241,28 +246,68 @@ module FUTURE
 */
 
   // the case when the future is not done
-  rule (<active-task> Task
-           <k> future(Id).get ~> K </k>
-        </active-task> => <active-task>... <futureId> -1 </futureId> <k> . </k> ...</active-task> )
-       (. => <waiting-task> <guard> future(Id).get ~> K </guard>
-                              <waiting-task-conf> Task </waiting-task-conf>
+  rule ( <active-task> Task
+           <k> waiting(<guard> Guards:Set </guard>) ~> K </k>
+         </active-task>
+        =>
+         <active-task>...
+           <futureId> -1 </futureId>
+           <k> . </k>
+         ...</active-task> )
+       (. => <waiting-task>
+               <guard> Guards </guard>
+               <waiting-k> K </waiting-k>
+               <waiting-task-conf> Task </waiting-task-conf>
              </waiting-task>)
-       <fid> Id </fid>
-       <state> S:State </state>
-       requires S =/=K completed
-  [futureBlock]
 
   // the case when the future is done
   rule (<active-task>... <futureId> -1 </futureId> ...</active-task>
         =>
-        <active-task> Task <k> future(Id).get ~> K </k> </active-task>
+        <active-task> Task <k> K </k> </active-task>
        )
-       (<waiting-task> <guard> future(Id).get ~> K </guard>
-                         <waiting-task-conf> Task </waiting-task-conf>
+       (<waiting-task> <waiting-k> K </waiting-k>
+                       <waiting-task-conf> Task </waiting-task-conf>
         </waiting-task> => .)
+  [futureUnblock]
+
+/* Basic semantics for await
+*/
+
+  // Sequencing ands
+  rule await(E1 && E2); => await(E1); ~> await(E2);
+  // reducing trues 
+  rule await(true); => .
+  // transforming other conditions in sets of disjunctive guards
+  rule await(E ?); => waiting(<guard> SetItem(E ?)</guard>)
+  rule await(wait); => waiting(<guard> SetItem(wait)</guard>)
+  rule await(E1 || E2); => waiting(<guard> SetItem(E1) SetItem(E2)</guard>)
+
+  syntax KItem ::= waiting(Bag)
+  // evaluating future expressions to future references
+  context waiting(<guard> _:Set SetItem(HOLE ?) </guard>)
+  // if one of the conditions is true, the disjunction is satified
+  rule <guard>... SetItem(true) ...</guard> => .
+  // splitting disjunctions into separate guards
+  rule <guard>... SetItem(E1 || E2) => SetItem(E1) SetItem(E2) ...</guard>
+  // An empty bag means the guard is satisfied.
+  rule waiting(.Bag) => .
+
+  // If waiting upon a completed future, then don't wait anymore
+  rule (<guard>... SetItem(future(Id) ?) ...</guard> => .)
        <fid> Id </fid>
        <state> completed </state>
-    [futureUnblock]
+
+  // If waiting upon wait, then don't wait anymore
+  rule <waiting-task>...
+         <guard>... SetItem(wait) ...</guard> => .
+       ...</waiting-task>
+
+/* Semantics for Future ?
+*/
+
+  rule <k> future(Id) ? => State ==K completed ...</k>
+       <fid> Id </fid>
+       <state> State </state>
 
 /*
   The new semantics of the return statement:
@@ -331,7 +376,7 @@ module FUTURE
        <extends> Class':Id </extends>
 
 /*
-  Additional field lookup semantics for lvalue:
+  Duplicate field lookup semantics for lvalue:
 */
   rule <k> lvalue(object(Id:Int, _, Class:Id) . X
                   =>
@@ -340,6 +385,15 @@ module FUTURE
        <location> Id </location>
        <envStack> ES:List </envStack>
   [structural]
+
+  rule <k> lvalue(super . X
+                  => lookupThis(<envStack> ES </envStack>, Class', X))
+       ...</k>
+       <envStack> ES:List </envStack>
+       <crntClass> Class:Id </crntClass>
+       <className> Class </className>
+       <extends> Class':Id </extends>
+
 
 
 /*  Lookup helper.  Finds the reference class in the environment stack,
@@ -394,5 +448,10 @@ module FUTURE
   rule <k> future(Id).get => throw V; ...</k>
        <fid> Id </fid>
        <result> exception(V:Val) </result>
+
+/* Hack for future types
+*/
+  rule subtype( typeOf( future(_)), ! _) => true
+  rule unsafeCast(future(Id), ! _) => future(Id)
 
 endmodule
