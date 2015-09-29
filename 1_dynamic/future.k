@@ -207,16 +207,15 @@ module FUTURE
   Method calls desugar into (blocking) future invocations
 */
 
-  rule O:ObjectVal . Method:Id(Vs:Vals)
-    => O ! Method(Vs) ~> waitAndGet
+  rule O:ObjectVal . Method:Id(Vs:Vals) => waitAndGet(O ! Method(Vs))
 
 
 /* Waiting for a future to complete, then getting its value.
 */
 
-  syntax KItem ::= "waitAndGet"
+  syntax KItem ::= waitAndGet(Exp) [strict]
 
-  rule future(Id) ~> waitAndGet => await(future(Id) ?); ~> future(Id).get
+  rule waitAndGet(future(Id)) => await(future(Id) ?); ~> future(Id).get
 
 /*
   A super call desugars into a normal call using a fake object
@@ -234,7 +233,7 @@ module FUTURE
 /* Calls using closure desugar into future calls on the closure's object
 */
   rule <k>  methodClosure(Type,Class,OId,Ps,S) (Vs:Vals)
-        => future(F) ~> waitAndGet ...</k>
+        => waitAndGet(future(F)) ...</k>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
                <closure> methodClosure(Type,Class,OId,Ps,S) </closure>
