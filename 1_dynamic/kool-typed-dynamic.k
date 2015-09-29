@@ -279,11 +279,9 @@ KOOL).  */
   rule sizeOf(array(_,_,N)) => N
 
 
-/*
   syntax Val ::= nothing(Type)
   rule <k> return; => return nothing(T); ...</k> <return> T </return>
     [structural]
-*/
 
   rule <k> read() => I ...</k> <in> ListItem(I:Int) => .List ...</in>  [read]
 
@@ -378,7 +376,7 @@ KOOL).  */
   rule typeOf(_:String) => string
   rule typeOf(array(T,_,_)) => (T[])
   rule typeOf(undefined(T)) => T
-//  rule typeOf(nothing(T)) => T
+  rule typeOf(nothing(T)) => T
 
   syntax Types ::= getTypes(Params)  [function]
   rule getTypes(T:Type _:Id) => T, .Types
