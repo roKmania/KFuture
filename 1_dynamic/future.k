@@ -75,7 +75,7 @@ module FUTURE
                 </T>
 
 
-/*
+/*@
   (Typed) Object references.
   An object reference is a triple (Id, MainClass, CurrentClass), where:
   * Id is an integer identifying the object
@@ -98,10 +98,8 @@ module FUTURE
     an unique identifier is assigned to it
   - then the "$clinit" special method is called
     as an usual method to perform basic object allocation and initialization
-  - once that is done, the constructor is called
-  - Finally, the result is a reference to the new object
-  - Both class initialization and constructor are blocking to ensure
-    the object reference is not exposed during initialization.
+    followed by the call to the constructor, returning a reference to the
+    created object.
 */
   syntax Id ::= "$clinit"
 
@@ -127,7 +125,9 @@ module FUTURE
 
 /*
   The semantics of a future task call.  A future call call creates a new
-  future task and evaluates to a reference to the newly created task.
+  future task and evaluates to a pre-reference to the newly created task,
+  waiting for the method's return type to be resolved before evaluating
+  to a complete future reference.
   Elements needed:
   * the object reference (where the method is to be called)
   * the name of the method to be called
@@ -172,15 +172,15 @@ module FUTURE
        <location> OId </location>
        <envStack> ES:List </envStack>
 
+/* Once the method is resolved to a location, we cen retrieve the return 
+  type of the method from the object's store */
   rule <oid> OId </oid>
        <closure> lookup(L) </closure>
        <returnType> .K => T </returnType>
        <location> OId </location>
        <store>... L |-> methodClosure(_->T,_,_,_,_) ...</store>
 
-  rule <closure> methodClosure(_->T,_,_,_,_) </closure>
-       <returnType> .K => T </returnType>
-
+/* if the future is created by new, the return type is the main class */
   rule <oid> OId </oid>
        <closure> $clinitClosure </closure>
        <returnType> .K => Class </returnType>
@@ -214,7 +214,7 @@ module FUTURE
     [futureStart]
 
 /*
-  Performing a local call:
+  Performing a future call.
   * Parameters are bound to arguments, then the body is executed
   * the current class is updated to the class of the method
 */
@@ -249,13 +249,6 @@ module FUTURE
        <location> Id </location>
        <envStack> ES:List </envStack>
 
-/* Waiting for a future to complete, then getting its value.
-*/
-
-  syntax KItem ::= waitAndGet(Exp) [strict]
-
-  rule waitAndGet(future(Id,T)) => await(future(Id,T) ?); ~> future(Id,T).get
-
 /*
   A super call desugars into a normal call using a fake object
   having the super class as a base.
@@ -278,6 +271,7 @@ module FUTURE
                <fid> F </fid> <oid> OId </oid>
                <closure> methodClosure(T -> T',Class,OId,Ps,S) </closure>
                <arguments> Vs </arguments>
+               <returnType> T' </returnType>
              ...</future>)
        <nextFutureId> F:Int => F +Int 1 </nextFutureId>
      requires OId =/=K OId'
@@ -386,9 +380,8 @@ arguments and calling the method.
        </control>
        <env> _ => Env </env>
 
-/*
-  The new semantics of the return statement:
-  When the active task returns from the main call (function stack is empty),
+/* Return from the future call.
+  When the active task returns from the future call (function stack is empty),
   we deactivate the task and set the returned value as the result of the
   corresponding future.
 */
@@ -434,6 +427,14 @@ arguments and calling the method.
        <fid> Id </fid>
        <result> V:Val </result>
     requires isExceptionVal(V) =/=K true
+
+/* waitAndGet: Waiting for a future to complete, then getting its value.
+*/
+
+  syntax KItem ::= waitAndGet(Exp) [strict]
+
+  rule waitAndGet(future(Id,T)) => await(future(Id,T) ?); ~> future(Id,T).get
+
 
 /*
   Field lookup is allowed only from the current object
