@@ -362,8 +362,9 @@ arguments and calling the method.
 
 /*
   The new semantics of the return statement:
-  * When the only thread of the task returns, we deactivate the task
-    and set the returned value as the result of the corresponding future.
+  When the active task returns from the main call (function stack is empty),
+  we deactivate the task and set the returned value as the result of the
+  corresponding future.
 */
 
   rule ( <active-task>...
