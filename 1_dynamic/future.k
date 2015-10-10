@@ -5,6 +5,7 @@ module FUTURE-SYNTAX
 
   syntax Exp ::= // ... |
                  Exp "!" Id "(" Exps ")" [avoid, strict(1)]
+               | "destiny"
                | Guard
 
   syntax Id ::= "get" [token]
@@ -123,6 +124,7 @@ module FUTURE
        <crntClass> Class:Id </crntClass>
        <mainClass> MClass:Id </mainClass>
 
+
 /*
   The semantics of a future task call.  A future call call creates a new
   future task and evaluates to a pre-reference to the newly created task,
@@ -158,6 +160,13 @@ module FUTURE
 
   rule <k> preFuture(F) => future(F,T) ...</k>
        <fid> F </fid>
+       <returnType> T:Type </returnType>
+
+/* destiny evaluates to the current future identifier
+*/
+  rule <k> destiny => future(Id,T) ...</k>
+       <futureId> Id </futureId>
+       <fid> Id </fid>
        <returnType> T:Type </returnType>
 
 /* Looking up the location of a future method by class and method name
@@ -236,7 +245,7 @@ module FUTURE
 */
 
   rule <k> object(Id,BClass,Class) . Method:Id(Vs:Vals)
-        => waitAndGet(object(Id,BClass,Class) ! Method(Vs)) ...</k>
+        => (object(Id,BClass,Class) ! Method(Vs)).get(.Exps) ...</k>
        <location> Id' </location>
     requires Id =/=K Id'
 
@@ -265,7 +274,7 @@ module FUTURE
 /* Calls using closure desugar into future calls on the closure's object
 */
   rule <k>  methodClosure(T -> T',Class,OId,Ps,S) (Vs:Vals)
-        => waitAndGet(future(F,T')) ...</k>
+        => future(F,T').get(.Exps) ...</k>
        <location> OId' </location>
        (. => <future>...
                <fid> F </fid> <oid> OId </oid>
@@ -421,20 +430,12 @@ arguments and calling the method.
   The requires clause is due to exceptions; see below.
 */
 
-  rule <k> future(Id,T).get
+  rule <k> future(Id,T).get(.Exps)
         => subtype(typeOf(V), T) ~> true? ~> unsafeCast(V, T)
        ...</k>
        <fid> Id </fid>
        <result> V:Val </result>
     requires isExceptionVal(V) =/=K true
-
-/* waitAndGet: Waiting for a future to complete, then getting its value.
-*/
-
-  syntax KItem ::= waitAndGet(Exp) [strict]
-
-  rule waitAndGet(future(Id,T)) => await(future(Id,T) ?); ~> future(Id,T).get
-
 
 /*
   Field lookup is allowed only from the current object
@@ -528,7 +529,7 @@ arguments and calling the method.
        <xstack> . </xstack>
 
 
-  rule <k> future(Id,_).get => throw V; ...</k>
+  rule <k> future(Id,_).get(.Exps) => throw V; ...</k>
        <fid> Id </fid>
        <result> exception(V:Val) </result>
 
