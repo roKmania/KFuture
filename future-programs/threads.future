@@ -5,7 +5,6 @@
 
 class Thread {
   !void id;
-  void Thread() { }
 
   void run() { }  // you are supposed to override this method
 
