@@ -1,0 +1,142 @@
+class Service {
+  Sensor sensor;
+  Proxy proxy;
+
+  void Service(int val) {  // constructor
+    sensor = new Sensor();
+    proxy = new Proxy(val);
+  }
+
+  void subscribe(Client cl) { 
+    proxy.add(cl); // sync. call
+  }
+
+  void process() {
+    while (true) {
+      !Event future = sensor!detectEvent();
+      proxy!publish(future);  // async. call
+      await future?;
+    }
+  }
+}
+
+class Proxy {
+  List myClients;
+  Proxy nextProxy;
+  Event ev;
+  int limit;
+
+  void Proxy(int k) { // constructor
+    limit = k;
+    myClients = new List();
+  }
+
+  void add(Client cl) {
+    if (myClients.length() < limit) {
+      myClients.add(cl);
+    } else {
+      if (isUndefined nextProxy) {
+        nextProxy = new Proxy(limit);
+      }
+      nextProxy.add(cl);
+    }
+  }
+
+  void publish(!Event future) {
+    await future?;
+    if (!(isUndefined nextProxy)) {
+      nextProxy!publish(future);
+    }
+    ev = future.get();
+    myClients.forAll(new Notifier(ev));
+  }
+}
+
+class Notifier extends Visitor {
+  Event event;
+  void Notifier(Event ev) { event = ev; }
+
+  void visit(Object client) {
+      client!signal(event);     // notify clients
+  }
+}
+
+class Visitor {
+  void visit(Object o) { }
+}
+
+class ListNode {
+  void ListNode() { }
+  Object _data;
+  ListNode _next;
+  void setNext(ListNode n) { _next = n; }
+  void setData(Object o) { _data = o; }
+  ListNode next() { return _next; }
+  Object data() { return _data; }
+}
+
+class List {
+  int _size;
+  ListNode first;
+  ListNode last;
+  void List() {
+    first = new ListNode();
+    last = new ListNode();
+    first.setNext(last);
+    _size = 0;
+  }
+  void add(Object o) {
+    ListNode node = new ListNode();
+    last.setData(o);
+    last.setNext(node);
+    last = node;
+    ++ _size;
+  }
+
+  int length() { return _size; }
+
+  void forAll(Visitor visitor) {
+    ListNode v;
+    for (v = first.next(); v != last; v = v.next()) {
+      visitor.visit(v.data());
+    }
+  }
+}
+
+class Event {
+  int id;
+  void Event(int id) { this.id = id; }
+  int getId() { return id; }
+}
+
+class Sensor {
+  int eventCount = 0;
+  void Sensor() { }
+  Event detectEvent() {
+    eventCount = eventCount+1;
+    if (eventCount > 5) { 
+       return destiny.get();
+    }
+    return new Event(eventCount);
+  }
+}
+
+class Client {
+  int id;
+  void Client(int id) { this.id = id; }
+  void signal(Event e) {
+    print("Client ", id, " received Event ", e.getId(),"\n");
+  }
+}
+
+
+class Main {
+  void Main() {
+    Service service = new Service(2);
+    int i;
+    for (i = 1; i < 5; ++ i) {
+      service.subscribe(new Client(i));
+    }
+    service.process();
+  }
+}

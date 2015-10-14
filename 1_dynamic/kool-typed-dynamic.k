@@ -66,6 +66,7 @@ untyped KOOL.  */
                | "(" Exp ")"             [bracket]
                | "++" Exp
                | Exp "instanceOf" Id     [strict(1)]    // KOOL
+               | "isUndefined" Exp
                | "(" Id ")" Exp          [strict(2)]    // KOOL  cast
                | "new" Id "(" Exps ")"   [strict(2)]    // KOOL
                | Exp "." Id                             // KOOL
@@ -244,6 +245,13 @@ KOOL).  */
        <env>... X |-> L ...</env>
        <store>... L |-> V:Val ...</store>  [lookup]
 
+  context isUndefined (HOLE => lvalue(HOLE))
+  rule <k> isUndefined loc(L) => isUndefinedFn(X) ...</k>
+       <store>... L |-> X ...</store>
+
+  syntax Bool ::= isUndefinedFn(K) [function]
+  rule isUndefinedFn(undefined(_)) => true
+  rule isUndefinedFn(_) => false [owise]
 
   context ++(HOLE => lvalue(HOLE))
   rule <k> ++loc(L) => I +Int 1 ...</k>
